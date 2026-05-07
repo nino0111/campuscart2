@@ -1,0 +1,86 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f5f6fa;
+}
+
+/* PAGE */
+.marketplace {
+  padding: 20px;
+}
+
+/* TITLE */
+.title {
+  font-size: 22px;
+  margin-bottom: 20px;
+  color: #2c3e50;
+}
+
+/* GRID */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 15px;
+}
+
+/* CARD */
+.card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.card:hover {
+  transform: scale(1.03);
+}
+
+/* IMAGE */
+.img-box {
+  width: 100%;
+  height: 140px;
+  overflow: hidden;
+}
+
+.img-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* INFO */
+.info {
+  padding: 10px;
+}
+
+.info h3 {
+  font-size: 14px;
+  margin: 0;
+  color: #333;
+}
+
+/* PRICE */
+.price {
+  color: #e74c3c;
+  font-weight: bold;
+  margin-top: 5px;
+}
+
+/* BID */
+.bid {
+  font-size: 12px;
+  color: #f39c12;
+}
+
+/* FIXED */
+.fixed {
+  font-size: 12px;
+  color: #27ae60;
+}
+
+/* EMPTY */
+.empty {
+  color: gray;
+}
