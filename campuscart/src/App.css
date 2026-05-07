@@ -1,86 +1,89 @@
-body {
+* {
   margin: 0;
-  font-family: Arial, sans-serif;
-  background: #f5f6fa;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-/* PAGE */
-.marketplace {
-  padding: 20px;
+body {
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg, #dfe9f3, #ffffff);
+  height: 100vh;
+}
+
+/* FULL CENTER FIX */
+.auth-page {
+  height: 100vh;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* CARD */
+.auth-card {
+  width: 360px;
+  padding: 30px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.9);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 15px 35px rgba(0,0,0,0.12);
+  text-align: center;
 }
 
 /* TITLE */
 .title {
-  font-size: 22px;
   margin-bottom: 20px;
-  color: #2c3e50;
-}
-
-/* GRID */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 15px;
-}
-
-/* CARD */
-.card {
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.card:hover {
-  transform: scale(1.03);
-}
-
-/* IMAGE */
-.img-box {
-  width: 100%;
-  height: 140px;
-  overflow: hidden;
-}
-
-.img-box img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* INFO */
-.info {
-  padding: 10px;
-}
-
-.info h3 {
-  font-size: 14px;
-  margin: 0;
-  color: #333;
-}
-
-/* PRICE */
-.price {
-  color: #e74c3c;
+  font-size: 22px;
   font-weight: bold;
-  margin-top: 5px;
 }
 
-/* BID */
-.bid {
-  font-size: 12px;
-  color: #f39c12;
+/* INPUTS */
+.auth-card input {
+  width: 100%;
+  padding: 12px;
+  margin: 8px 0;
+  border-radius: 25px;
+  border: 1px solid #ddd;
+  text-align: center;
 }
 
-/* FIXED */
-.fixed {
-  font-size: 12px;
-  color: #27ae60;
+/* BUTTON ROW */
+.btn-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
 }
 
-/* EMPTY */
-.empty {
-  color: gray;
+.btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 25px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btn.dark {
+  background: #2c3e50;
+  color: white;
+}
+
+.btn.light {
+  background: #ecf0f1;
+}
+
+/* SOCIAL */
+.social {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.social button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 20px;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
 }
