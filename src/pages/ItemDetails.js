@@ -1,17 +1,14 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate} from "react-router-dom";
 import { db } from "../firebase";
-import { doc, getDoc, deleteDoc, collection, addDoc, getDocs, query, where, serverTimestamp } from "firebase/firestore";
+import { 
+  doc, getDoc, deleteDoc, collection, addDoc, getDocs, 
+  query, where, serverTimestamp, setDoc 
+} from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { 
-  ArrowLeft, 
-  ShoppingBag, 
-  MessageCircle, 
-  Trash2, 
-  Share2, 
-  Bookmark, 
-  ChevronLeft,
-  ChevronRight
+  ArrowLeft, ShoppingBag, MessageCircle,
+  Share2, Heart, ChevronLeft, ChevronRight 
 } from "lucide-react";
 import '../styles/Home.css';
 
@@ -20,10 +17,10 @@ export default function ItemDetail() {
   const navigate = useNavigate();
   const [item, setItem] = useState(null);
   const [currentImgIndex, setCurrentImgIndex] = useState(0);
+  const [isSaved, setIsSaved] = useState(false); // ✅ Track Heart State
   const auth = getAuth();
   const user = auth.currentUser;
 
-  // ✅ NEW: For Custom Alert
   const [alertMsg, setAlertMsg] = useState("");
   const [showAlert, setShowAlert] = useState(false);
 
@@ -33,7 +30,8 @@ export default function ItemDetail() {
     textMain: '#1E293B',
     textMuted: '#64748B',
     priceGreen: '#059669',
-    bgLight: '#F1F5F9'
+    bgLight: '#F1F5F9',
+    heartRed: '#EF4444'
   };
 
   useEffect(() => {
@@ -43,27 +41,50 @@ export default function ItemDetail() {
       if (snap.exists()) {
         setItem(snap.data());
       }
+
+      // ✅ Check if item is already hearted
+      if (user) {
+        const savedRef = doc(db, "users", user.uid, "saved", id);
+        const savedSnap = await getDoc(savedRef);
+        setIsSaved(savedSnap.exists());
+      }
     };
     fetchItem();
-  }, [id]);
+  }, [id, user]);
 
-  const handleDelete = async () => {
-    if (window.confirm("Are you sure you want to mark this as sold/delete?")) {
-      await deleteDoc(doc(db, "listings", id));
-      navigate("/home");
+  // ✅ Working Heart/Save Logic
+  const toggleSave = async () => {
+    if (!user) {
+      setAlertMsg("Please login to save items!");
+      setShowAlert(true);
+      return;
+    }
+
+    const savedRef = doc(db, "users", user.uid, "saved", id);
+    try {
+      if (isSaved) {
+        await deleteDoc(savedRef);
+        setIsSaved(false);
+      } else {
+        await setDoc(savedRef, { 
+          ...item, 
+          savedAt: serverTimestamp(),
+          originalId: id 
+        });
+        setIsSaved(true);
+      }
+    } catch (err) {
+      console.error("Save error:", err);
     }
   };
 
   const startChat = async () => {
     if (!user) {
-      // ✅ Replaced alert with custom modal
       setAlertMsg("Please login first!");
       setShowAlert(true);
-      navigate("/");
       return;
     }
     if (item.userId === user.uid) {
-      // ✅ Replaced alert with custom modal
       setAlertMsg("This is your own item!");
       setShowAlert(true);
       return;
@@ -78,7 +99,7 @@ export default function ItemDetail() {
       const querySnapshot = await getDocs(chatQuery);
 
       if (!querySnapshot.empty) {
-        navigate(`/chat-room/${querySnapshot.docs[0].id}`);
+        navigate(`/chat/${querySnapshot.docs[0].id}`);
       } else {
         const newChatRef = await addDoc(collection(db, "chats"), {
           itemId: id,
@@ -88,7 +109,7 @@ export default function ItemDetail() {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
-        navigate(`/chat-room/${newChatRef.id}`);
+        navigate(`/chat/${newChatRef.id}`);
       }
     } catch (error) {
       console.error("Error starting chat:", error);
@@ -100,10 +121,10 @@ export default function ItemDetail() {
   return (
     <div className="home-container" style={{ background: COLORS.bgLight }}>
       
-      {/* ✅ UNIFIED NAVBAR */}
-      <header className="navbar">
+      {/* NAVBAR */}
+      <header className="navbar" style={navStyle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={() => navigate(-1)} className="back-btn" style={{ border: 'none', background: 'transparent' }}>
+          <button onClick={() => navigate(-1)} style={backBtnStyle}>
             <ArrowLeft size={20} color={COLORS.textMain} />
           </button>
           <div style={{ background: COLORS.primary, padding: 8, borderRadius: 10, display: 'flex' }}>
@@ -111,37 +132,23 @@ export default function ItemDetail() {
           </div>
           <span style={{ fontSize: 20, fontWeight: 800, color: COLORS.primary }}>CampusCart</span>
         </div>
-        <div className="nav-links">
-          <Link to="/home" className="nav-item">Home</Link>
-          <Link to="/profile" className="nav-item">Profile</Link>
-        </div>
       </header>
 
       <main style={{ display: 'flex', minHeight: 'calc(100vh - 70px)' }}>
         
-        {/* ✅ LEFT SIDE: IMAGE GALLERY (Facebook Style) */}
-        <div style={{ flex: 1.5, background: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+        {/* LEFT SIDE: GALLERY */}
+        <div style={galleryPane}>
           {item.images && item.images.length > 0 ? (
             <>
               <img 
                 src={item.images[currentImgIndex]} 
                 alt="product" 
-                style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain' }} 
+                style={mainImgStyle} 
               />
               {item.images.length > 1 && (
                 <>
-                  <button 
-                    onClick={() => setCurrentImgIndex(prev => (prev > 0 ? prev - 1 : item.images.length - 1))}
-                    style={{ position: 'absolute', left: 20, background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', p: 10, cursor: 'pointer' }}
-                  >
-                    <ChevronLeft color="white" size={30} />
-                  </button>
-                  <button 
-                    onClick={() => setCurrentImgIndex(prev => (prev < item.images.length - 1 ? prev + 1 : 0))}
-                    style={{ position: 'absolute', right: 20, background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', p: 10, cursor: 'pointer' }}
-                  >
-                    <ChevronRight color="white" size={30} />
-                  </button>
+                  <button onClick={() => setCurrentImgIndex(prev => (prev > 0 ? prev - 1 : item.images.length - 1))} style={prevBtn}><ChevronLeft color="white" size={30} /></button>
+                  <button onClick={() => setCurrentImgIndex(prev => (prev < item.images.length - 1 ? prev + 1 : 0))} style={nextBtn}><ChevronRight color="white" size={30} /></button>
                 </>
               )}
             </>
@@ -150,125 +157,89 @@ export default function ItemDetail() {
           )}
         </div>
 
-        {/* ✅ RIGHT SIDE: DETAILS SIDEBAR (Professional Layout) */}
-        <aside style={{ width: '450px', background: 'white', padding: '30px', overflowY: 'auto', borderLeft: '1px solid #E2E8F0' }}>
+        {/* RIGHT SIDE: DETAILS */}
+        <aside style={detailsSidebar}>
           <h1 style={{ fontSize: 28, fontWeight: 800, color: COLORS.textMain, marginBottom: 8 }}>{item.title}</h1>
-          <div style={{ fontSize: 24, fontWeight: 800, color: COLORS.priceGreen, marginBottom: 4 }}>
+          <div style={{ fontSize: 26, fontWeight: 800, color: COLORS.priceGreen, marginBottom: 4 }}>
             ₱{Number(item.price).toLocaleString()}
           </div>
           <p style={{ fontSize: 13, color: COLORS.textMuted, marginBottom: 20 }}>
             Listed in {item.location || "Campus Area"}
           </p>
 
-          <div style={{ display: 'flex', gap: 10, marginBottom: 25 }}>
-            <button onClick={startChat} style={{ flex: 1, height: 45, background: COLORS.primary, color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <MessageCircle size={18} /> Message
+          <div style={{ display: 'flex', gap: 12, marginBottom: 25 }}>
+            <button onClick={startChat} style={chatActionBtn}>
+              <MessageCircle size={20} /> Message Seller
             </button>
-            <button style={{ width: 45, height: 45, background: '#F1F5F9', border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Bookmark size={18} color={COLORS.textMain} />
+            
+            {/* ✅ THE HEART BUTTON */}
+            <button 
+              onClick={toggleSave}
+              style={{ ...iconActionBtn, background: isSaved ? '#FEF2F2' : '#F1F5F9' }}
+            >
+              <Heart 
+                size={22} 
+                fill={isSaved ? COLORS.heartRed : "none"} 
+                color={isSaved ? COLORS.heartRed : COLORS.textMain} 
+              />
             </button>
-            <button style={{ width: 45, height: 45, background: '#F1F5F9', border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Share2 size={18} color={COLORS.textMain} />
-            </button>
+            
+            <button style={iconActionBtn}><Share2 size={20} color={COLORS.textMain} /></button>
           </div>
 
-          <hr style={{ border: 'none', borderTop: '1px solid #F1F5F9', margin: '20px 0' }} />
+          <hr style={divider} />
 
           <section>
-            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Details</h3>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 15 }}>
-              <span style={{ color: COLORS.textMuted }}>Condition</span>
-              <span style={{ fontWeight: 600 }}>New / Good</span>
-            </div>
-            <p style={{ fontSize: 15, lineHeight: 1.6, color: COLORS.textMain, whiteSpace: 'pre-wrap' }}>
-              {item.description}
-            </p>
+            <h3 style={sectionTitle}>Description</h3>
+            <p style={descriptionText}>{item.description}</p>
           </section>
 
-          <hr style={{ border: 'none', borderTop: '1px solid #F1F5F9', margin: '20px 0' }} />
+          <hr style={divider} />
 
           <section>
-            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 15 }}>Seller Information</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => navigate(`/user-profile/${item.userId}`)}>
-              <img 
-                src={"https://placehold.co/45x45/2D3494/FFFFFF?text=S"} 
-                style={{ borderRadius: '50%', width: 45, height: 45 }} 
-                alt="seller" 
-              />
+            <h3 style={sectionTitle}>Seller</h3>
+            <div style={sellerCard} onClick={() => navigate(`/user-profile/${item.userId}`)}>
+              <div style={sellerAvatar}>{item.sellerName?.charAt(0) || "S"}</div>
               <div>
-                <div style={{ fontWeight: 700, color: COLORS.textMain }}>Campus Seller</div>
-                <div style={{ fontSize: 12, color: COLORS.textMuted }}>View Profile <ChevronRight size={12} /></div>
+                <div style={{ fontWeight: 700, color: COLORS.textMain }}>{item.sellerName || "Campus Seller"}</div>
+                <div style={{ fontSize: 12, color: COLORS.textMuted }}>View Profile</div>
               </div>
             </div>
           </section>
-
-          {/* OWNER ACTIONS */}
-          {user && item.userId === user.uid && (
-            <button 
-              onClick={handleDelete}
-              style={{ width: '100%', marginTop: 40, padding: '12px', background: '#FFF1F2', color: '#E11D48', border: '1px solid #FECDD3', borderRadius: 8, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer' }}
-            >
-              <Trash2 size={18} /> Mark as Sold / Delete
-            </button>
-          )}
         </aside>
-
       </main>
 
-      {/* ✅ CUSTOM ALERT MODAL - BRANDED DESIGN */}
+      {/* ALERT MODAL */}
       {showAlert && (
-        <div style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: "rgba(0,0,0,0.5)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 9999
-        }}>
-          <div style={{
-            background: "white",
-            borderRadius: "16px",
-            padding: "24px",
-            width: "90%",
-            maxWidth: "400px",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
-            border: "1px solid #E2E8F0"
-          }}>
-            <h3 style={{
-              fontSize: "18px",
-              fontWeight: 700,
-              color: "#2D3494",
-              margin: "0 0 12px 0"
-            }}>CampusCart</h3>
-            <p style={{
-              fontSize: "15px",
-              color: "#1E293B",
-              margin: "0 0 20px 0",
-              lineHeight: 1.5
-            }}>{alertMsg}</p>
-            <button
-              onClick={() => setShowAlert(false)}
-              style={{
-                width: "100%",
-                padding: "10px",
-                background: "#2D3494",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                fontWeight: 600,
-                cursor: "pointer"
-              }}
-            >
-              OK
-            </button>
+        <div style={modalOverlay}>
+          <div style={modalBox}>
+            <h3 style={modalTitle}>CampusCart</h3>
+            <p style={modalText}>{alertMsg}</p>
+            <button onClick={() => setShowAlert(false)} style={modalBtn}>OK</button>
           </div>
         </div>
       )}
-
     </div>
   );
 }
+
+/* --- STYLES --- */
+const navStyle = { padding: "15px 40px", background: "white", borderBottom: "1px solid #E2E8F0" };
+const backBtnStyle = { border: 'none', background: 'transparent', cursor: 'pointer', padding: 8 };
+const galleryPane = { flex: 1.5, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' };
+const mainImgStyle = { maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain' };
+const detailsSidebar = { width: '450px', background: 'white', padding: '35px', overflowY: 'auto', borderLeft: '1px solid #E2E8F0' };
+const chatActionBtn = { flex: 1, height: 50, background: '#2D3494', color: 'white', border: 'none', borderRadius: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 };
+const iconActionBtn = { width: 50, height: 50, borderRadius: 12, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' };
+const divider = { border: 'none', borderTop: '1px solid #F1F5F9', margin: '25px 0' };
+const sectionTitle = { fontSize: 16, fontWeight: 700, marginBottom: 12, color: '#1E293B' };
+const descriptionText = { fontSize: 15, lineHeight: 1.6, color: '#475569', whiteSpace: 'pre-wrap' };
+const sellerCard = { display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', padding: '10px', borderRadius: '12px', background: '#F8FAFC' };
+const sellerAvatar = { width: 45, height: 45, borderRadius: '50%', background: '#2D3494', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' };
+const prevBtn = { position: 'absolute', left: 20, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', padding: 10, cursor: 'pointer' };
+const nextBtn = { position: 'absolute', right: 20, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', padding: 10, cursor: 'pointer' };
+const modalOverlay = { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 };
+const modalBox = { background: "white", borderRadius: "20px", padding: "30px", width: "90%", maxWidth: "380px", textAlign: 'center' };
+const modalTitle = { fontSize: "20px", fontWeight: 800, color: "#2D3494", marginBottom: "10px" };
+const modalText = { fontSize: "15px", color: "#475569", marginBottom: "25px" };
+const modalBtn = { width: "100%", padding: "12px", background: "#2D3494", color: "white", border: "none", borderRadius: "10px", fontWeight: 700, cursor: "pointer" };

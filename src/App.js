@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
-// ✅ Import Auth (This is your main Login/SignUp now)
+// ✅ Import Auth
 import Auth from "./pages/Auth";
 import Home from "./pages/Home";
 import CreateListing from "./pages/CreateListing";
@@ -14,18 +14,18 @@ import Listings from './pages/Listings';
 import ChatList from "./components/ChatList";       
 import ChatRoom from "./components/ChatRoom"; 
 import Alerts from './pages/Alerts'; 
+import Settings from "./pages/Settings";
 
-// ❌ REMOVED: import Login from './pages/Login'; (File was deleted)
+// ✅ NEW IMPORTS for My Listings and Saved Items
+import MyListings from "./pages/MyListings";
+import SavedItems from "./pages/SavedItems";
 
 function App() {
   return (
     <Router>
       <Routes>
-        {/* ✅ Default route now goes to Auth */}
         <Route path="/" element={<Auth />} />
         <Route path="/auth" element={<Auth />} />
-        
-        {/* ✅ Redirect old /login path to /auth to prevent errors */}
         <Route path="/login" element={<Auth />} />
         
         <Route path="/home" element={<Home />} />
@@ -40,8 +40,13 @@ function App() {
         <Route path="/alerts" element={<Alerts />} />
         <Route path="/chat-list" element={<ChatList />} />
         <Route path="/chat-room/:chatId" element={<ChatRoom />} />
+        <Route path="/settings" element={<Settings />} />
 
-        {/* ✅ Catch-all: If user types a wrong URL, go back to Auth */}
+        {/* ✅ NEW ROUTES ADDED HERE */}
+        <Route path="/my-listings" element={<MyListings />} />
+        <Route path="/saved" element={<SavedItems />} />
+
+        {/* Catch-all */}
         <Route path="*" element={<Navigate to="/auth" />} />
       </Routes>
     </Router>
