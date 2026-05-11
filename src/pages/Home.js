@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { db, auth } from "../firebase";
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
-import { useNavigate, } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { 
   Search, ShoppingBag, MapPin, Plus, 
   Menu, X, MessageSquare, Tag,
-  Loader2, Sparkles, Heart, Package, Settings, LogOut, BookOpen, Tv, Lamp, Shirt, PenTool
+  Loader2, Sparkles, Heart, Package, Settings, LogOut, BookOpen, Tv, Lamp, Shirt, PenTool, User
 } from "lucide-react";
 
 export default function Home() {
@@ -19,7 +19,7 @@ export default function Home() {
   const navigate = useNavigate();
   const currentUser = auth.currentUser;
 
-  // ✅ INJECTING ANIMATIONS (Gradient and Spinning Sparkle)
+  // ✅ INJECTING ANIMATIONS
   useEffect(() => {
     const styleSheet = document.createElement("style");
     styleSheet.type = "text/css";
@@ -53,6 +53,12 @@ export default function Home() {
 
       .float-btn {
         animation: floatAction 3s ease-in-out infinite;
+      }
+
+      .hide-mobile {
+        @media (max-width: 640px) {
+          display: none;
+        }
       }
     `;
     document.head.appendChild(styleSheet);
@@ -89,7 +95,6 @@ export default function Home() {
     fetchData();
   }, []);
 
-  // Combined Filtering Logic
   useEffect(() => {
     let filtered = items;
     if (activeCategory !== "All") filtered = filtered.filter(i => i.category === activeCategory);
@@ -163,8 +168,9 @@ export default function Home() {
       <header style={navStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
           <Menu size={26} onClick={() => setIsSidebarOpen(true)} style={{ cursor: "pointer", color: "#2D3494" }} />
-          <span style={{ fontSize: 22, fontWeight: 800, color: "#2D3494" }}>CampusCart</span>
+          <span style={{ fontSize: 22, fontWeight: 800, color: "#2D3494" }} className="hide-mobile">CampusCart</span>
         </div>
+        
         <div style={searchBarContainer}>
           <Search size={18} color="#94A3B8" />
           <input 
@@ -174,9 +180,25 @@ export default function Home() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <button onClick={() => navigate('/create-listing')} style={sellBtn}>
-          <Plus size={18} /> <span className="hide-mobile">Sell Item</span>
-        </button>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button onClick={() => navigate('/create-listing')} style={sellBtn}>
+            <Plus size={18} /> <span className="hide-mobile">Sell Item</span>
+          </button>
+          
+          {/* ✅ ADDED PROFILE BUTTON */}
+          <button 
+            onClick={() => navigate('/profile')} 
+            style={profileBtnStyle}
+            title="Profile"
+          >
+            {currentUser?.photoURL ? (
+              <img src={currentUser.photoURL} alt="Profile" style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
+            ) : (
+              <User size={20} color="#2D3494" />
+            )}
+          </button>
+        </div>
       </header>
 
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px" }}>
@@ -204,18 +226,24 @@ export default function Home() {
             {searchTerm ? `Results for "${searchTerm}"` : activeCategory === "All" ? "Today's Picks" : activeCategory}
           </h2>
           <div style={gridStyle}>
-            {displayItems.map(item => (
-              <div key={item.id} style={cardStyle} onClick={() => navigate(`/detail/${item.id}`)}>
-                <img src={item.images[0] || "https://placehold.co/400x300"} style={imgStyle} alt="" />
-                <div style={{ padding: "15px" }}>
-                  <div style={{ color: "#059669", fontWeight: 800, fontSize: 18 }}>₱{Number(item.price).toLocaleString()}</div>
-                  <div style={{ fontWeight: 700, fontSize: "15px", margin: "5px 0", color: "#1E293B" }}>{item.title}</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5, color: "#64748B", fontSize: 12, marginTop: 10 }}>
-                    <MapPin size={12} /> {item.location || "PSAU Campus"}
+            {displayItems.length > 0 ? (
+              displayItems.map(item => (
+                <div key={item.id} style={cardStyle} onClick={() => navigate(`/detail/${item.id}`)}>
+                  <img src={item.images[0] || "https://placehold.co/400x300"} style={imgStyle} alt="" />
+                  <div style={{ padding: "15px" }}>
+                    <div style={{ color: "#059669", fontWeight: 800, fontSize: 18 }}>₱{Number(item.price).toLocaleString()}</div>
+                    <div style={{ fontWeight: 700, fontSize: "15px", margin: "5px 0", color: "#1E293B" }}>{item.title}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, color: "#64748B", fontSize: 12, marginTop: 10 }}>
+                      <MapPin size={12} /> {item.location || "PSAU Campus"}
+                    </div>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: '#64748B' }}>
+                No items found.
               </div>
-            ))}
+            )}
           </div>
         </main>
       </div>
@@ -224,10 +252,24 @@ export default function Home() {
 }
 
 /* --- STYLES --- */
-const navStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "15px 5%", background: "white", borderBottom: "1px solid #E2E8F0", position: "sticky", top: 0, zIndex: 1000 };
-const searchBarContainer = { display: "flex", alignItems: "center", gap: 10, background: "#F1F5F9", padding: "0 15px", borderRadius: 12, height: 44, width: "45%" };
+const navStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 5%", background: "white", borderBottom: "1px solid #E2E8F0", position: "sticky", top: 0, zIndex: 1000 };
+const searchBarContainer = { display: "flex", alignItems: "center", gap: 10, background: "#F1F5F9", padding: "0 15px", borderRadius: 12, height: 42, width: "40%" };
 const searchField = { border: "none", background: "transparent", outline: "none", width: "100%", fontSize: 14 };
-const sellBtn = { background: "#2D3494", color: "white", border: "none", padding: "10px 20px", borderRadius: 10, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 };
+const sellBtn = { background: "#2D3494", color: "white", border: "none", padding: "10px 18px", borderRadius: 10, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 };
+
+const profileBtnStyle = { 
+  width: "42px", 
+  height: "42px", 
+  borderRadius: "12px", 
+  background: "#F1F5F9", 
+  border: "1px solid #E2E8F0", 
+  display: "flex", 
+  alignItems: "center", 
+  justifyContent: "center", 
+  cursor: "pointer",
+  padding: 0,
+  overflow: 'hidden'
+};
 
 const bannerBaseStyle = { borderRadius: 24, padding: "50px 40px", display: "flex", alignItems: "center", marginBottom: 40, position: "relative", overflow: "hidden" };
 const bannerBtn = { background: "white", color: "#2D3494", border: "none", padding: "12px 28px", borderRadius: 12, fontWeight: 800, cursor: "pointer", boxShadow: "0 4px 15px rgba(0,0,0,0.1)" };
