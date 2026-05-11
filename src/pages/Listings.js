@@ -2,273 +2,208 @@ import { useState, useEffect } from "react";
 import { db } from "../firebase";
 import { collection, getDocs, query, orderBy, updateDoc, doc } from "firebase/firestore";
 import { Link, useNavigate } from "react-router-dom";
+import { 
+  ShoppingBag, 
+  Search, 
+  MessageCircle, 
+  Gavel, 
+  Clock, 
+  Package, 
+  ChevronRight,
+  Plus
+} from "lucide-react";
+import '../styles/Home.css';
 
 export default function Listings() {
   const [items, setItems] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
+
+  const COLORS = {
+    primary: '#2D3494',
+    accent: '#4F46E5',
+    textMain: '#1E293B',
+    textMuted: '#64748B',
+    priceGreen: '#059669',
+    bidRed: '#E11D48',
+    bgLight: '#F8FAFC'
+  };
 
   useEffect(() => {
     const fetchItems = async () => {
-      const q = query(
-        collection(db, "listings"),
-        orderBy("createdAt", "desc")
-      );
-      
+      const q = query(collection(db, "listings"), orderBy("createdAt", "desc"));
       const querySnapshot = await getDocs(q);
       const itemList = [];
-      
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         if (data.title && data.title.trim() !== "") {
-          itemList.push({ 
-            id: doc.id, 
-            ...data 
-          });
+          itemList.push({ id: doc.id, ...data });
         }
       });
-
       setItems(itemList);
     };
-
     fetchItems();
   }, []);
 
   const timeAgo = (timestamp) => {
     if (!timestamp) return "Recently";
-    
     const now = new Date();
     const postedTime = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     const seconds = Math.floor((now - postedTime) / 1000);
-
     let interval = Math.floor(seconds / 31536000);
-    if (interval > 1) return `${interval} years ago`;
-    if (interval === 1) return `1 year ago`;
-
+    if (interval >= 1) return `${interval}y ago`;
     interval = Math.floor(seconds / 2592000);
-    if (interval > 1) return `${interval} months ago`;
-    if (interval === 1) return `1 month ago`;
-
+    if (interval >= 1) return `${interval}mo ago`;
     interval = Math.floor(seconds / 86400);
-    if (interval > 1) return `${interval} days ago`;
-    if (interval === 1) return `1 day ago`;
-
+    if (interval >= 1) return `${interval}d ago`;
     interval = Math.floor(seconds / 3600);
-    if (interval > 1) return `${interval} hours ago`;
-    if (interval === 1) return `1 hour ago`;
-
-    interval = Math.floor(seconds / 60);
-    if (interval > 1) return `${interval} mins ago`;
-    if (interval === 1) return `1 min ago`;
-
+    if (interval >= 1) return `${interval}h ago`;
     return `Just now`;
   };
 
   const placeBid = async (item) => {
-    const bidAmount = prompt(`Enter your bid amount (Current highest: ₱${item.highestBid || item.price})`);
+    const currentMax = parseFloat(item.highestBid || item.price || 0);
+    const bidAmount = prompt(`Enter bid higher than ₱${currentMax}`);
     
-    if (!bidAmount || isNaN(bidAmount)) {
-      alert("Please enter a valid number!");
-      return;
-    }
-
+    if (!bidAmount || isNaN(bidAmount)) return;
     const numericBid = parseFloat(bidAmount);
-    const currentPrice = parseFloat(item.highestBid || item.price || 0);
 
-    if (numericBid <= currentPrice) {
-      alert(`Bid must be higher than current price! Minimum bid is ₱${currentPrice + 1}`);
+    if (numericBid <= currentMax) {
+      alert(`Min bid: ₱${currentMax + 1}`);
       return;
     }
 
     try {
-      const itemRef = doc(db, "listings", item.id);
-      await updateDoc(itemRef, {
-        highestBid: numericBid
-      });
-
-      setItems(items.map(i => 
-        i.id === item.id ? { ...i, highestBid: numericBid } : i
-      ));
-
-      alert(`✅ Bid successful! You are now the highest bidder at ₱${numericBid}`);
+      await updateDoc(doc(db, "listings", item.id), { highestBid: numericBid });
+      setItems(items.map(i => i.id === item.id ? { ...i, highestBid: numericBid } : i));
+      alert(`Success! Current highest: ₱${numericBid}`);
     } catch (error) {
-      console.error("Error placing bid:", error);
-      alert("Failed to place bid. Try again.");
+      alert("Error placing bid.");
     }
   };
 
+  const filteredItems = items.filter(item => 
+    item.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      background: '#f0f2f5', 
-      padding: '20px',
-      fontFamily: "'Segoe UI', Roboto, sans-serif"
-    }}>
-      <nav style={{ 
-        background: 'white', 
-        padding: '15px 30px', 
-        borderRadius: '15px', 
-        boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
-        marginBottom: '30px',
-        display: 'flex',
-        gap: '30px',
-        alignItems: 'center'
-      }}>
-        <Link to="/home" style={{ textDecoration: 'none', color: '#1c1e21', fontSize: '17px', fontWeight: '500' }}>Home</Link>
-        <Link to="/listings" style={{ textDecoration: 'none', color: '#1877f2', fontSize: '17px', fontWeight: '600', borderBottom: '2px solid #1877f2', paddingBottom: '3px' }}>Marketplace</Link>
-        <Link to="/profile" style={{ textDecoration: 'none', color: '#1c1e21', fontSize: '17px', fontWeight: '500' }}>Profile</Link>
-      </nav>
-
-      <h2 style={{ fontSize: '28px', color: '#1c1e21', marginBottom: '25px', fontWeight: '700' }}>
-        📢 Items for Sale
-      </h2>
-
-      {items.length === 0 ? (
-        <div style={{ 
-          textAlign: 'center', 
-          padding: '50px',
-          background: 'white',
-          borderRadius: '15px'
-        }}>
-          <p style={{ fontSize: '18px', color: '#65676b' }}>No items yet. Be the first to post!</p>
+    <div className="home-container" style={{ background: COLORS.bgLight, minHeight: '100vh' }}>
+      
+      {/* NAVBAR */}
+      <header className="navbar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ background: COLORS.primary, padding: 8, borderRadius: 10, display: 'flex' }}>
+            <ShoppingBag size={22} color="white" />
+          </div>
+          <span style={{ fontSize: 22, fontWeight: 800, color: COLORS.primary }}>CampusCart</span>
         </div>
-      ) : (
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
-          gap: '20px' 
-        }}>
-          {items.map((item) => (
-            <div key={item.id} style={{
-              background: 'white',
-              borderRadius: '15px',
-              overflow: 'hidden',
-              boxShadow: '0 3px 10px rgba(0,0,0,0.08)',
-              transition: 'transform 0.2s'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-            onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-            >
-              <div style={{ 
-                height: '200px', 
-                background: '#e9ebee',
-                overflow: 'hidden',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                {item.images && item.images.length > 0 && item.images[0] ? (
-                  <img 
-                    src={item.images[0]} 
-                    alt={item.title} 
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    onError={(e) => e.target.style.display = 'none'}
-                  />
-                ) : (
-                  <span style={{ fontSize: '60px', color: '#8a8d91' }}>📦</span>
-                )}
-              </div>
 
-              <div style={{ padding: '20px' }}>
-                <h3 style={{ margin: '0 0 8px', fontSize: '18px', color: '#1c1e21' }}>
-                  {item.title}
-                </h3>
-                <p style={{ margin: '0 0 10px', fontSize: '14px', color: '#65676b' }}>
-                  {item.description}
-                </p>
+        <div className="search-box" style={{ maxWidth: '400px' }}>
+          <Search size={18} color={COLORS.textMuted} />
+          <input 
+            type="text" 
+            placeholder="Search Marketplace..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
 
-                <div style={{ 
-                  background: '#f0f2f5', 
-                  padding: '10px', 
-                  borderRadius: '8px', 
-                  marginBottom: '15px'
-                }}>
-                  {/* ✅ NOW CHECKING FOR item.type === "bid" */}
-                  {item.type === "bid" ? (
-                    <>
-                      <p style={{ margin: '0 0 5px', fontSize: '14px', color: '#65676b' }}>
-                        Starting Price: <strong>₱{item.price}</strong>
-                      </p>
-                      <p style={{ margin: '0 0 5px', fontSize: '16px', color: '#e41e3f', fontWeight: '700' }}>
-                        💰 Highest Bid: ₱{item.highestBid || item.price}
-                      </p>
-                    </>
+        <div className="nav-links">
+          <Link to="/home" className="nav-item">Home</Link>
+          <Link to="/listings" className="nav-item active">Marketplace</Link>
+          <button 
+            className="submit-btn" 
+            onClick={() => navigate('/create-listing')}
+            style={{ padding: '8px 16px', fontSize: '14px' }}
+          >
+            <Plus size={16} /> Post
+          </button>
+        </div>
+      </header>
+
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+          <h2 style={{ fontSize: '28px', fontWeight: 800, color: COLORS.textMain, margin: 0 }}>Marketplace Feed</h2>
+          <div style={{ color: COLORS.textMuted, fontSize: '14px' }}>{filteredItems.length} items available</div>
+        </div>
+
+        {filteredItems.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '100px 0', background: 'white', borderRadius: '20px', border: '1px solid #E2E8F0' }}>
+            <Package size={48} color="#CBD5E1" style={{ marginBottom: '16px' }} />
+            <h3 style={{ color: COLORS.textMain }}>No items found</h3>
+            <p style={{ color: COLORS.textMuted }}>Be the first to list something!</p>
+          </div>
+        ) : (
+          <div className="grid">
+            {filteredItems.map((item) => (
+              <div key={item.id} className="card">
+                <div className="img-box" onClick={() => navigate(`/detail/${item.id}`)}>
+                  {item.images?.[0] ? (
+                    <img src={item.images[0]} alt={item.title} />
                   ) : (
-                    <p style={{ margin: '0', fontSize: '16px', color: '#1877f2', fontWeight: '700' }}>
-                      🏷️ Fixed Price: ₱{item.price}
-                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                      <Package size={40} color="#CBD5E1" />
+                      <span style={{ fontSize: '12px', color: '#94A3B8' }}>No Image</span>
+                    </div>
                   )}
-                  
-                  <p style={{ margin: '0', fontSize: '13px', color: '#65676b', fontStyle: 'italic' }}>
-                    🕒 {timeAgo(item.createdAt)}
-                  </p>
+                  <div style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(255,255,255,0.9)', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Clock size={12} /> {timeAgo(item.createdAt)}
+                  </div>
                 </div>
 
-                {/* ✅ NOW CHECKING FOR item.type === "bid" */}
-                {item.type === "bid" ? (
-                  <button 
-                    onClick={() => placeBid(item)}
-                    style={{
-                      width: '100%',
-                      background: '#e41e3f',
-                      color: 'white',
-                      border: 'none',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      fontSize: '15px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
-                    onMouseOver={(e) => e.currentTarget.style.background = '#d41b39'}
-                    onMouseOut={(e) => e.currentTarget.style.background = '#e41e3f'}
-                  >
-                    ⚡ Place Your Bid
-                  </button>
-                ) : (
-                  <button 
-                    onClick={() => navigate('/chat')}
-                    style={{
-                      width: '100%',
-                      background: '#1877f2',
-                      color: 'white',
-                      border: 'none',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      fontSize: '15px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
-                    onMouseOver={(e) => e.currentTarget.style.background = '#166fe5'}
-                    onMouseOut={(e) => e.currentTarget.style.background = '#1877f2'}
-                  >
-                    💬 Chat Seller
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+                <div className="info">
+                  <h3 onClick={() => navigate(`/detail/${item.id}`)} style={{ cursor: 'pointer' }}>{item.title}</h3>
+                  
+                  <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '12px', marginBottom: '15px', border: '1px solid #F1F5F9' }}>
+                    {item.type === "bid" ? (
+                      <div>
+                        <div style={{ fontSize: '12px', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Highest Bid</div>
+                        <div style={{ fontSize: '20px', fontWeight: 800, color: COLORS.bidRed }}>₱{(item.highestBid || item.price).toLocaleString()}</div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ fontSize: '12px', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Fixed Price</div>
+                        <div style={{ fontSize: '20px', fontWeight: 800, color: COLORS.primary }}>₱{item.price.toLocaleString()}</div>
+                      </div>
+                    )}
+                  </div>
 
-      <div 
-        style={{
-          position: 'fixed',
-          bottom: '30px',
-          right: '30px',
-          width: '60px',
-          height: '60px',
-          background: '#2c3e50',
-          borderRadius: '50%',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          cursor: 'pointer',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-          zIndex: 1000
-        }}
-        onClick={() => navigate('/chat')}
-      >
-        <span style={{ color: 'white', fontSize: '24px' }}>💬</span>
+                  {item.type === "bid" ? (
+                    <button 
+                      className="submit-btn" 
+                      onClick={() => placeBid(item)}
+                      style={{ background: COLORS.bidRed, width: '100%', gap: 8 }}
+                    >
+                      <Gavel size={18} /> Place Bid
+                    </button>
+                  ) : (
+                    <button 
+                      className="submit-btn" 
+                      onClick={() => navigate(`/detail/${item.id}`)}
+                      style={{ background: COLORS.primary, width: '100%', gap: 8 }}
+                    >
+                      <MessageCircle size={18} /> Contact Seller
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* FLOATING CHAT BUTTON */}
+      <button 
+        style={{
+          position: 'fixed', bottom: '30px', right: '30px', width: '60px', height: '60px',
+          background: COLORS.primary, borderRadius: '50%', border: 'none',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          boxShadow: '0 8px 24px rgba(45, 52, 148, 0.3)', cursor: 'pointer'
+        }}
+        onClick={() => navigate('/messages')}
+      >
+        <MessageCircle color="white" size={28} />
+      </button>
     </div>
   );
 }

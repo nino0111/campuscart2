@@ -3,14 +3,38 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { db } from "../firebase";
 import { doc, getDoc, deleteDoc, collection, addDoc, getDocs, query, where, serverTimestamp } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import { 
+  ArrowLeft, 
+  ShoppingBag, 
+  User as UserIcon, 
+  MessageCircle, 
+  Trash2, 
+  Share2, 
+  Bookmark, 
+  Handshake, 
+  Bell,
+  ChevronLeft,
+  ChevronRight,
+  MapPin
+} from "lucide-react";
 import '../styles/Home.css';
 
 export default function ItemDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [item, setItem] = useState(null);
+  const [currentImgIndex, setCurrentImgIndex] = useState(0);
   const auth = getAuth();
   const user = auth.currentUser;
+
+  const COLORS = {
+    primary: '#2D3494',
+    accent: '#4F46E5',
+    textMain: '#1E293B',
+    textMuted: '#64748B',
+    priceGreen: '#059669',
+    bgLight: '#F1F5F9'
+  };
 
   useEffect(() => {
     const fetchItem = async () => {
@@ -24,7 +48,7 @@ export default function ItemDetail() {
   }, [id]);
 
   const handleDelete = async () => {
-    if (window.confirm("Are you sure you want to delete this listing?")) {
+    if (window.confirm("Are you sure you want to mark this as sold/delete?")) {
       await deleteDoc(doc(db, "listings", id));
       navigate("/home");
     }
@@ -50,8 +74,7 @@ export default function ItemDetail() {
       const querySnapshot = await getDocs(chatQuery);
 
       if (!querySnapshot.empty) {
-        const chatId = querySnapshot.docs[0].id;
-        navigate(`/chat-room/${chatId}`);
+        navigate(`/chat-room/${querySnapshot.docs[0].id}`);
       } else {
         const newChatRef = await addDoc(collection(db, "chats"), {
           itemId: id,
@@ -68,197 +91,125 @@ export default function ItemDetail() {
     }
   };
 
-  const viewSellerProfile = () => {
-    navigate(`/user-profile/${item.userId}`);
-  };
-
-  if (!item) return <div className="content"><p>Loading...</p></div>;
+  if (!item) return <div style={{ padding: "100px", textAlign: "center" }}><p>Loading Item...</p></div>;
 
   return (
-    <div className="home-container" style={{ background: '#ffffff', minHeight: '100vh' }}>
-      <nav className="navbar">
+    <div className="home-container" style={{ background: COLORS.bgLight }}>
+      
+      {/* ✅ UNIFIED NAVBAR */}
+      <header className="navbar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button onClick={() => navigate(-1)} className="back-btn" style={{ border: 'none', background: 'transparent' }}>
+            <ArrowLeft size={20} color={COLORS.textMain} />
+          </button>
+          <div style={{ background: COLORS.primary, padding: 8, borderRadius: 10, display: 'flex' }}>
+            <ShoppingBag size={20} color="white" />
+          </div>
+          <span style={{ fontSize: 20, fontWeight: 800, color: COLORS.primary }}>CampusCart</span>
+        </div>
         <div className="nav-links">
-          <Link to="/home">Home</Link>
-          <Link to="/listings">Listings</Link>
-          <Link to="/profile">Profile</Link>
-          <Link to="/cart">Cart</Link>
+          <Link to="/home" className="nav-item">Home</Link>
+          <Link to="/profile" className="nav-item">Profile</Link>
         </div>
-        <div className="profile-icon">
-          <img src={user?.photoURL || "https://placehold.co/40x40"} alt="Profile" />
-        </div>
-      </nav>
+      </header>
 
-      <div className="content" style={{ maxWidth: '900px', margin: '0 auto', padding: '0' }}>
+      <main style={{ display: 'flex', minHeight: 'calc(100vh - 70px)' }}>
         
-        <div style={{ background: 'white', width: '100%' }}>
-
-          {/* ✅ FIXED IMAGE SIZE - NOT TOO BIG */}
-          <div style={{
-            display: 'flex',
-            overflowX: 'auto',
-            scrollSnapType: 'x mandatory',
-            width: '100%',
-            background: '#fff'
-          }}>
-            {item.images && item.images.map((url, i) => (
-              <div key={i} style={{ flex: '0 0 100%', scrollSnapAlign: 'start' }}>
-                <img 
-                  src={url} 
-                  alt="product" 
-                  style={{
-                    width: '100%',
-                    height: '350px', // ✅ REDUCED HEIGHT
-                    objectFit: 'contain' // ✅ SO IT FITS NICELY
-                  }} 
-                />
-              </div>
-            ))}
-          </div>
-
-          <div style={{ padding: '20px' }}>
-            {/* TITLE & PRICE */}
-            <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#000', margin: '0 0 10px 0' }}>
-              {item.title}
-            </h2>
-
-            <p style={{
-              fontSize: '30px',
-              fontWeight: 'bold',
-              color: '#000',
-              margin: '0 0 15px 0'
-            }}>
-              ₱{item.price}
-            </p>
-
-            <p style={{
-              display: 'inline-block',
-              background: '#f0f2f5',
-              color: '#000',
-              padding: '4px 10px',
-              borderRadius: '20px',
-              fontSize: '13px',
-              fontWeight: '500',
-              marginBottom: '20px'
-            }}>
-              {item.type === "bid" ? "Open for Bid" : "Fixed Price"}
-            </p>
-
-            {/* MESSAGE SELLER BAR */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              background: '#f0f2f5',
-              borderRadius: '50px',
-              padding: '12px 15px',
-              marginBottom: '25px'
-            }}>
-              <span style={{ fontSize: '20px', marginRight: '10px', color: '#1877f2' }}>💬</span>
-              <span style={{ fontSize: '16px', fontWeight: '500', color: '#000' }}>Message seller</span>
-            </div>
-
-            {/* ACTION BUTTONS */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '30px',
-              paddingBottom: '20px',
-              borderBottom: '1px solid #e0e0e0'
-            }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#f0f2f5', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '24px', color: '#444' }}>🔔</div>
-                <span style={{ fontSize: '12px', color: '#444', marginTop: '4px' }}>Alerts</span>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#f0f2f5', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '24px', color: '#444' }}>🤝</div>
-                <span style={{ fontSize: '12px', color: '#444', marginTop: '4px' }}>Send offer</span>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#f0f2f5', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '24px', color: '#444' }}>↗️</div>
-                <span style={{ fontSize: '12px', color: '#444', marginTop: '4px' }}>Share</span>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#f0f2f5', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '24px', color: '#444' }}>📌</div>
-                <span style={{ fontSize: '12px', color: '#444', marginTop: '4px' }}>Save</span>
-              </div>
-            </div>
-
-            {/* DESCRIPTION */}
-            <div>
-              <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: '#000', marginBottom: '12px' }}>Description</h3>
-              <p style={{
-                fontSize: '15px',
-                lineHeight: '1.6',
-                color: '#444',
-                whiteSpace: 'pre-line'
-              }}>
-                {item.description}
-              </p>
-            </div>
-
-            {/* MAIN BUTTONS */}
-            <div style={{ display: 'flex', gap: '10px', marginTop: '30px' }}>
-              <button 
-                onClick={viewSellerProfile}
-                style={{
-                  flex: 1,
-                  padding: '14px',
-                  fontSize: '15px',
-                  fontWeight: '600',
-                  color: 'white',
-                  background: '#1877f2',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer'
-                }}
-              >
-                👤 View Seller Profile
-              </button>
-
-              <button 
-                onClick={startChat}
-                style={{
-                  flex: 1,
-                  padding: '14px',
-                  fontSize: '15px',
-                  fontWeight: '600',
-                  color: 'white',
-                  background: '#25d366',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer'
-                }}
-              >
-                💬 Chat with Seller
-              </button>
-            </div>
-
-            {user && item.userId === user.uid && (
-              <button 
-                onClick={handleDelete}
-                style={{
-                  width: '100%',
-                  padding: '14px',
-                  fontSize: '15px',
-                  fontWeight: '600',
-                  color: 'white',
-                  background: '#e41e3f',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  marginTop: '10px'
-                }}
-              >
-                🗑️ Mark as Sold / Delete
-              </button>
-            )}
-
-          </div>
+        {/* ✅ LEFT SIDE: IMAGE GALLERY (Facebook Style) */}
+        <div style={{ flex: 1.5, background: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+          {item.images && item.images.length > 0 ? (
+            <>
+              <img 
+                src={item.images[currentImgIndex]} 
+                alt="product" 
+                style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain' }} 
+              />
+              {item.images.length > 1 && (
+                <>
+                  <button 
+                    onClick={() => setCurrentImgIndex(prev => (prev > 0 ? prev - 1 : item.images.length - 1))}
+                    style={{ position: 'absolute', left: 20, background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', p: 10, cursor: 'pointer' }}
+                  >
+                    <ChevronLeft color="white" size={30} />
+                  </button>
+                  <button 
+                    onClick={() => setCurrentImgIndex(prev => (prev < item.images.length - 1 ? prev + 1 : 0))}
+                    style={{ position: 'absolute', right: 20, background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', p: 10, cursor: 'pointer' }}
+                  >
+                    <ChevronRight color="white" size={30} />
+                  </button>
+                </>
+              )}
+            </>
+          ) : (
+            <div style={{ color: 'white' }}>No Images Available</div>
+          )}
         </div>
-      </div>
+
+        {/* ✅ RIGHT SIDE: DETAILS SIDEBAR (Professional Layout) */}
+        <aside style={{ width: '450px', background: 'white', padding: '30px', overflowY: 'auto', borderLeft: '1px solid #E2E8F0' }}>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: COLORS.textMain, marginBottom: 8 }}>{item.title}</h1>
+          <div style={{ fontSize: 24, fontWeight: 800, color: COLORS.priceGreen, marginBottom: 4 }}>
+            ₱{Number(item.price).toLocaleString()}
+          </div>
+          <p style={{ fontSize: 13, color: COLORS.textMuted, marginBottom: 20 }}>
+            Listed in {item.location || "Campus Area"}
+          </p>
+
+          <div style={{ display: 'flex', gap: 10, marginBottom: 25 }}>
+            <button onClick={startChat} style={{ flex: 1, height: 45, background: COLORS.primary, color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <MessageCircle size={18} /> Message
+            </button>
+            <button style={{ width: 45, height: 45, background: '#F1F5F9', border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Bookmark size={18} color={COLORS.textMain} />
+            </button>
+            <button style={{ width: 45, height: 45, background: '#F1F5F9', border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Share2 size={18} color={COLORS.textMain} />
+            </button>
+          </div>
+
+          <hr style={{ border: 'none', borderTop: '1px solid #F1F5F9', margin: '20px 0' }} />
+
+          <section>
+            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Details</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 15 }}>
+              <span style={{ color: COLORS.textMuted }}>Condition</span>
+              <span style={{ fontWeight: 600 }}>New / Good</span>
+            </div>
+            <p style={{ fontSize: 15, lineHeight: 1.6, color: COLORS.textMain, whiteSpace: 'pre-wrap' }}>
+              {item.description}
+            </p>
+          </section>
+
+          <hr style={{ border: 'none', borderTop: '1px solid #F1F5F9', margin: '20px 0' }} />
+
+          <section>
+            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 15 }}>Seller Information</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => navigate(`/user-profile/${item.userId}`)}>
+              <img 
+                src={"https://placehold.co/45x45/2D3494/FFFFFF?text=S"} 
+                style={{ borderRadius: '50%', width: 45, height: 45 }} 
+                alt="seller" 
+              />
+              <div>
+                <div style={{ fontWeight: 700, color: COLORS.textMain }}>Campus Seller</div>
+                <div style={{ fontSize: 12, color: COLORS.textMuted }}>View Profile <ChevronRight size={12} /></div>
+              </div>
+            </div>
+          </section>
+
+          {/* OWNER ACTIONS */}
+          {user && item.userId === user.uid && (
+            <button 
+              onClick={handleDelete}
+              style={{ width: '100%', marginTop: 40, padding: '12px', background: '#FFF1F2', color: '#E11D48', border: '1px solid #FECDD3', borderRadius: 8, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer' }}
+            >
+              <Trash2 size={18} /> Mark as Sold / Delete
+            </button>
+          )}
+        </aside>
+
+      </main>
     </div>
   );
 }

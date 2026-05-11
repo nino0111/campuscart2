@@ -1,22 +1,36 @@
 import { useState, useEffect } from "react";
 import { auth, db, storage } from "../firebase";
 import { signOut, updateProfile } from "firebase/auth";
-import { doc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, updateDoc, collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { useNavigate, Link } from "react-router-dom";
+import { 
+  ShoppingBag, User as UserIcon, LogOut, Camera, Package, 
+  Plus, ChevronRight, MessageCircle, Settings, CreditCard, 
+  ShieldCheck, Star, History, CheckCircle2, TrendingUp
+} from "lucide-react";
+import '../styles/Home.css';
 
 export default function Profile() {
   const [user, setUser] = useState(null);
   const [imageUpload, setImageUpload] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [myItems, setMyItems] = useState([]); // ✅ NEW
+  const [myItems, setMyItems] = useState([]);
   const navigate = useNavigate();
+
+  const COLORS = {
+    primary: '#2D3494',
+    accent: '#4F46E5',
+    textMain: '#1E293B',
+    textMuted: '#64748B',
+    priceGreen: '#059669',
+    bgLight: '#F8FAFC'
+  };
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        // ✅ FETCH MY ITEMS
         await fetchMyItems(currentUser.uid);
       } else {
         navigate('/login');
@@ -25,13 +39,9 @@ export default function Profile() {
     return () => unsubscribe();
   }, [navigate]);
 
-  // ✅ FUNCTION TO FETCH MY ITEMS
   const fetchMyItems = async (userId) => {
     try {
-      const q = query(
-        collection(db, "listings"),
-        where("userId", "==", userId) // Only get my items
-      );
+      const q = query(collection(db, "listings"), where("userId", "==", userId));
       const querySnapshot = await getDocs(q);
       const items = [];
       querySnapshot.forEach((doc) => {
@@ -48,295 +58,149 @@ export default function Profile() {
       await signOut(auth);
       localStorage.removeItem('user');
       navigate('/');
-    } catch (error) {
-      console.error("Error:", error);
-    }
+    } catch (error) { console.error(error); }
   };
 
   const handleImageChange = (e) => {
-    if (e.target.files[0]) {
-      setImageUpload(e.target.files[0]);
-    }
+    if (e.target.files[0]) setImageUpload(e.target.files[0]);
   };
 
   const handleUpload = async () => {
     if (!imageUpload || !user) return;
-
     setUploading(true);
     const storageRef = ref(storage, `profilePictures/${user.uid}`);
     const uploadTask = uploadBytesResumable(storageRef, imageUpload);
-
-    uploadTask.on(
-      "state_changed",
-      () => {},
-      (error) => {
-        console.error("Upload error:", error);
-        setUploading(false);
-      },
+    uploadTask.on("state_changed", () => {}, (error) => { setUploading(false); }, 
       async () => {
         const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-        
         await updateProfile(user, { photoURL: downloadURL });
         const userRef = doc(db, "users", user.uid);
         await updateDoc(userRef, { photoURL: downloadURL });
-
         setUser({ ...user, photoURL: downloadURL });
-        localStorage.setItem('user', JSON.stringify({ ...user, photoURL: downloadURL }));
-
         setUploading(false);
         setImageUpload(null);
-        alert("Profile picture updated!");
       }
     );
   };
 
-  if (!user) return <div style={{ padding: '50px', fontSize: '20px' }}>Loading...</div>;
+  if (!user) return <div style={{ padding: '100px', textAlign: 'center' }}>Loading Dashboard...</div>;
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      background: '#f0f2f5', 
-      padding: '20px',
-      fontFamily: "'Segoe UI', Roboto, sans-serif"
-    }}>
-      <nav style={{ 
-        background: 'white', 
-        padding: '15px 30px', 
-        borderRadius: '15px', 
-        boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
-        marginBottom: '30px',
-        display: 'flex',
-        gap: '30px',
-        alignItems: 'center'
-      }}>
-        <Link to="/home" style={{ textDecoration: 'none', color: '#1c1e21', fontSize: '17px', fontWeight: '500' }}>Home</Link>
-        <Link to="/listings" style={{ textDecoration: 'none', color: '#1c1e21', fontSize: '17px', fontWeight: '500' }}>Marketplace</Link>
-        <Link to="/profile" style={{ textDecoration: 'none', color: '#1877f2', fontSize: '17px', fontWeight: '600', borderBottom: '2px solid #1877f2', paddingBottom: '3px' }}>Profile</Link>
-      </nav>
-
-      <div style={{ 
-        maxWidth: '600px', 
-        margin: '0 auto',
-        background: 'white',
-        borderRadius: '20px',
-        padding: '40px',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
-      }}>
-        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <div style={{ 
-            width: '140px', 
-            height: '140px', 
-            margin: '0 auto 15px',
-            borderRadius: '50%',
-            background: '#e9ebee',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-            border: '5px solid white',
-            boxShadow: '0 3px 10px rgba(0,0,0,0.1)'
-          }}>
-            {user.photoURL ? (
-              <img src={user.photoURL} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <span style={{ fontSize: '60px', color: '#8a8d91' }}>👤</span>
-            )}
+    <div className="home-container" style={{ background: COLORS.bgLight, minHeight: '100vh' }}>
+      
+      {/* NAVBAR */}
+      <header className="navbar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ background: COLORS.primary, padding: 8, borderRadius: 10, display: 'flex' }}>
+            <ShoppingBag size={22} color="white" />
           </div>
-          
-          <div>
-            <input 
-              type="file" 
-              id="fileInput" 
-              style={{ display: 'none' }} 
-              onChange={handleImageChange}
-              accept="image/*"
-            />
-            <button 
-              onClick={() => document.getElementById('fileInput').click()}
-              style={{
-                background: '#1877f2',
-                color: 'white',
-                border: 'none',
-                padding: '10px 20px',
-                borderRadius: '8px',
-                fontSize: '15px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                marginRight: '10px'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.background = '#166fe5'}
-              onMouseOut={(e) => e.currentTarget.style.background = '#1877f2'}
-            >
-              Choose Photo
-            </button>
-
-            {imageUpload && (
-              <button 
-                onClick={handleUpload}
-                disabled={uploading}
-                style={{
-                  background: '#42b72a',
-                  color: 'white',
-                  border: 'none',
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  fontSize: '15px',
-                  fontWeight: '500',
-                  cursor: 'pointer'
-                }}
-              >
-                {uploading ? 'Uploading...' : 'Save Photo'}
-              </button>
-            )}
-          </div>
+          <span style={{ fontSize: 22, fontWeight: 800, color: COLORS.primary }}>CampusCart</span>
         </div>
-
-        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <h2 style={{ 
-            margin: '0 0 8px', 
-            fontSize: '28px', 
-            color: '#1c1e21',
-            fontWeight: '700'
-          }}>
-            {user.displayName || "User Name"}
-          </h2>
-          <p style={{ 
-            margin: '0', 
-            fontSize: '17px', 
-            color: '#65676b'
-          }}>
-            {user.email}
-          </p>
+        <div className="nav-links">
+          <Link to="/home" className="nav-item">Home</Link>
+          <Link to="/listings" className="nav-item">Marketplace</Link>
+          <Link to="/profile" className="nav-item active">Profile</Link>
         </div>
+      </header>
 
-        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <button 
-            onClick={handleLogout}
-            style={{
-              background: '#e41e3f',
-              color: 'white',
-              border: 'none',
-              padding: '12px 35px',
-              borderRadius: '10px',
-              fontSize: '16px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'background 0.2s',
-              boxShadow: '0 3px 8px rgba(228, 30, 63, 0.2)'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.background = '#d41b39'}
-            onMouseOut={(e) => e.currentTarget.style.background = '#e41e3f'}
-          >
-            🚪 Logout
-          </button>
-        </div>
-
-        {/* ✅ MY LISTINGS SECTION */}
-        <div style={{ 
-          borderTop: '1px solid #dadde1', 
-          paddingTop: '30px'
-        }}>
-          <h3 style={{ 
-            fontSize: '22px', 
-            color: '#1c1e21', 
-            margin: '0 0 15px',
-            fontWeight: '600'
-          }}>
-            📦 My Listings
-          </h3>
-          
-          {myItems.length === 0 ? (
-            <div style={{ 
-              background: '#f0f2f5', 
-              borderRadius: '12px', 
-              padding: '30px',
-              textAlign: 'center'
-            }}>
-              <p style={{ 
-                margin: '0 0 15px', 
-                fontSize: '16px', 
-                color: '#65676b'
-              }}>
-                You haven't posted anything yet
-              </p>
-              <Link to="/create-listing" style={{
-                background: '#1877f2',
-                color: 'white',
-                textDecoration: 'none',
-                padding: '10px 25px',
-                borderRadius: '8px',
-                fontSize: '15px',
-                fontWeight: '500'
-              }}>
-                + Create First Listing
-              </Link>
+      <div style={{ maxWidth: '1000px', margin: '40px auto', padding: '0 20px', display: 'grid', gridTemplateColumns: '300px 1fr', gap: '30px' }}>
+        
+        {/* LEFT COLUMN */}
+        <aside style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* USER CARD */}
+          <div style={{ background: 'white', borderRadius: '24px', padding: '30px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', textAlign: 'center', border: '1px solid #E2E8F0' }}>
+            <div style={{ position: 'relative', width: '100px', height: '100px', margin: '0 auto 15px' }}>
+              <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: '#F1F5F9', overflow: 'hidden', border: '3px solid white', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
+                {user.photoURL ? <img src={user.photoURL} alt="pfp" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={40} color="#94A3B8" style={{ marginTop: 25 }} />}
+              </div>
+              <label htmlFor="fileInput" style={{ position: 'absolute', bottom: '0', right: '0', background: COLORS.primary, padding: '6px', borderRadius: '50%', cursor: 'pointer', color: 'white' }}>
+                <Camera size={14} /><input type="file" id="fileInput" hidden onChange={handleImageChange} accept="image/*" />
+              </label>
             </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              {myItems.map((item) => (
-                <div key={item.id} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '15px',
-                  borderRadius: '12px',
-                  background: '#f7f8fa',
-                  gap: '15px'
-                }}>
-                  <div style={{
-                    width: '60px',
-                    height: '60px',
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                    background: '#e9ebee',
-                    flexShrink: 0
-                  }}>
-                    {item.images && item.images[0] ? (
-                      <img src={item.images[0]} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>📦</div>
-                    )}
-                  </div>
-                  <div style={{ flexGrow: 1 }}>
-                    <h4 style={{ margin: '0 0 5px', fontSize: '16px', color: '#1c1e21' }}>{item.title}</h4>
-                    <p style={{ margin: '0', fontSize: '14px', color: '#1877f2', fontWeight: '600' }}>₱{item.price}</p>
-                  </div>
-                  <div style={{
-                    padding: '5px 10px',
-                    borderRadius: '20px',
-                    background: item.bidding === "yes" || item.bidding === true ? '#fff3cd' : '#d1e7dd',
-                    color: item.bidding === "yes" || item.bidding === true ? '#856404' : '#0f5132',
-                    fontSize: '12px',
-                    fontWeight: '600'
-                  }}>
-                    {item.bidding === "yes" || item.bidding === true ? 'Bidding' : 'Fixed Price'}
-                  </div>
+            <h2 style={{ fontSize: '18px', fontWeight: 800 }}>{user.displayName || "Student"}</h2>
+            <p style={{ fontSize: '12px', color: COLORS.textMuted, marginBottom: 15 }}>{user.email}</p>
+            
+            <div style={{ background: '#F8FAFC', padding: '10px', borderRadius: '12px', marginBottom: 20 }}>
+               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700, marginBottom: 5 }}>
+                 <span>Profile Strength</span>
+                 <span>85%</span>
+               </div>
+               <div style={{ width: '100%', height: '6px', background: '#E2E8F0', borderRadius: '10px' }}>
+                 <div style={{ width: '85%', height: '100%', background: COLORS.priceGreen, borderRadius: '10px' }}></div>
+               </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <button style={sidebarBtnStyle}><Settings size={16} /> Settings</button>
+              <button style={sidebarBtnStyle}><CreditCard size={16} /> Wallet</button>
+              <button onClick={handleLogout} style={{ ...sidebarBtnStyle, color: '#E11D48', background: '#FFF1F2', border: '1px solid #FECDD3' }}><LogOut size={16} /> Logout</button>
+            </div>
+          </div>
+        </aside>
+
+        {/* RIGHT COLUMN */}
+        <main style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+          
+          {/* STATS */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
+            <div style={statBoxStyle}><TrendingUp size={20} color={COLORS.primary} /><div style={statNumStyle}>{myItems.length}</div><div style={statLabelStyle}>Active</div></div>
+            <div style={statBoxStyle}><CheckCircle2 size={20} color={COLORS.priceGreen} /><div style={statNumStyle}>12</div><div style={statLabelStyle}>Sold</div></div>
+            <div style={statBoxStyle}><Star size={20} color="#F59E0B" /><div style={statNumStyle}>4.9</div><div style={statLabelStyle}>Rating</div></div>
+          </div>
+
+          {/* LISTINGS BOX */}
+          <div style={sectionBoxStyle}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 800 }}>Manage Listings</h3>
+              <Link to="/create-listing" style={{ color: COLORS.accent, fontWeight: 700, fontSize: '13px', textDecoration: 'none' }}>+ Add New</Link>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {myItems.map(item => (
+                <div key={item.id} className="sidebar-item" style={itemRowStyle} onClick={() => navigate(`/detail/${item.id}`)}>
+                  <img src={item.images?.[0] || "https://placehold.co/40x40"} style={{ width: '45px', height: '45px', borderRadius: '8px', objectFit: 'cover' }} alt="item" />
+                  <div style={{ flex: 1 }}><div style={{ fontSize: '14px', fontWeight: 700 }}>{item.title}</div><div style={{ fontSize: '13px', color: COLORS.priceGreen, fontWeight: 700 }}>₱{Number(item.price).toLocaleString()}</div></div>
+                  <ChevronRight size={18} color="#94A3B8" />
                 </div>
               ))}
             </div>
-          )}
-        </div>
-      </div>
+          </div>
 
-      <div 
-        style={{
-          position: 'fixed',
-          bottom: '30px',
-          right: '30px',
-          width: '60px',
-          height: '60px',
-          background: '#2c3e50',
-          borderRadius: '50%',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          cursor: 'pointer',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-          zIndex: 1000
-        }}
-        onClick={() => navigate('/chat')}
-      >
-        <span style={{ color: 'white', fontSize: '24px' }}>💬</span>
+          {/* RECENT ACTIVITY */}
+          <div style={sectionBoxStyle}>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <History size={20} /> Recent Transactions
+            </h3>
+            <div style={{ textAlign: 'center', padding: '20px', color: COLORS.textMuted, fontSize: '14px', background: '#F8FAFC', borderRadius: '12px', border: '1px dashed #E2E8F0' }}>
+              No recent purchases to display.
+            </div>
+          </div>
+        </main>
       </div>
     </div>
   );
 }
+
+// STYLE OBJECTS
+const sidebarBtnStyle = {
+  display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 15px',
+  background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px',
+  fontSize: '13px', fontWeight: 600, color: '#475569', cursor: 'pointer', transition: '0.2s'
+};
+
+const statBoxStyle = {
+  background: 'white', padding: '20px', borderRadius: '20px', border: '1px solid #E2E8F0',
+  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px'
+};
+
+const statNumStyle = { fontSize: '22px', fontWeight: 800, marginTop: '8px' };
+const statLabelStyle = { fontSize: '11px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' };
+
+const sectionBoxStyle = {
+  background: 'white', borderRadius: '24px', padding: '30px', border: '1px solid #E2E8F0',
+  boxShadow: '0 4px 20px rgba(0,0,0,0.02)'
+};
+
+const itemRowStyle = {
+  display: 'flex', alignItems: 'center', gap: '15px', padding: '12px',
+  background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', cursor: 'pointer'
+};

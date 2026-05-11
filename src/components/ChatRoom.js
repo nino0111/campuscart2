@@ -1,136 +1,149 @@
 import { useState, useEffect, useRef } from "react";
-import { db } from "../firebase";
-import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, updateDoc, doc } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import { db, auth } from "../firebase";
+import { 
+  collection, 
+  addDoc, 
+  query, 
+  orderBy, 
+  onSnapshot, 
+  serverTimestamp, 
+  doc, 
+  getDoc 
+} from "firebase/firestore";
+// ✅ Fixed: Added MessageCircle to the imports
+import { 
+  ArrowLeft, 
+  Send, 
+  ShoppingBag, 
+  MessageCircle, 
+  User as UserIcon 
+} from "lucide-react";
+import '../styles/Home.css';
 
-// ✅ ADDED darkMode HERE!
-export default function ChatRoom({ darkMode }) {
+export default function ChatRoom() {
+  const { chatId } = useParams();
+  const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  const { chatId } = useParams();
-  const auth = getAuth();
-  const user = auth.currentUser;
-  const messagesEndRef = useRef(null);
+  const [chatInfo, setChatInfo] = useState(null);
+  const scrollRef = useRef();
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const user = auth.currentUser;
+
+  const COLORS = {
+    primary: '#2D3494',
+    accent: '#4F46E5',
+    bgLight: '#F8FAFC',
+    textMain: '#1E293B'
   };
 
   useEffect(() => {
     if (!chatId) return;
 
-    // Get all messages
+    const fetchChatInfo = async () => {
+      try {
+        const chatDoc = await getDoc(doc(db, "chats", chatId));
+        if (chatDoc.exists()) {
+          setChatInfo(chatDoc.data());
+        }
+      } catch (err) {
+        console.error("Error fetching chat info:", err);
+      }
+    };
+    fetchChatInfo();
+
     const q = query(
-      collection(db, "messages"),
+      collection(db, "chats", chatId, "messages"),
       orderBy("createdAt", "asc")
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const allMessages = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      // Filter only for this chat
-      const chatMessages = allMessages.filter(msg => msg.chatId === chatId);
-      
-      setMessages(chatMessages);
-      scrollToBottom();
+      setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
     return () => unsubscribe();
   }, [chatId]);
 
-  const sendMessage = async (e) => {
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !user) return;
+    if (newMessage.trim() === "") return;
 
     try {
-      // Add message
-      await addDoc(collection(db, "messages"), {
-        chatId: chatId,
+      await addDoc(collection(db, "chats", chatId, "messages"), {
         text: newMessage,
         senderId: user.uid,
-        createdAt: serverTimestamp()
+        senderName: user.displayName || "Student",
+        createdAt: serverTimestamp(),
       });
-
-      // Update last message
-      const chatRef = doc(db, "chats", chatId);
-      await updateDoc(chatRef, {
-        lastMessage: newMessage,
-        updatedAt: serverTimestamp()
-      });
-
       setNewMessage("");
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error sending message:", error);
     }
   };
 
   return (
-    <div style={{ 
-      maxWidth: '500px', 
-      margin: '0 auto',
-      height: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      background: darkMode ? '#1a1a1a' : 'white'
-    }}>
+    <div className="chat-page-wrapper" style={{ background: COLORS.bgLight, height: '100vh', display: 'flex', flexDirection: 'column' }}>
       
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
-        {messages.length === 0 && <p style={{textAlign: 'center', color: darkMode ? '#999' : '#999'}}>No messages yet</p>}
-
-        {messages.map(msg => (
-          <div 
-            key={msg.id} 
-            style={{
-              display: 'flex',
-              justifyContent: msg.senderId === user.uid ? 'flex-end' : 'flex-start',
-              marginBottom: '10px'
-            }}
-          >
-            <div style={{
-              background: msg.senderId === user.uid ? '#1877f2' : darkMode ? '#3a3a3a' : '#e5e5ea',
-              color: msg.senderId === user.uid ? 'white' : darkMode ? 'white' : 'black',
-              padding: '10px 15px',
-              borderRadius: '20px',
-              maxWidth: '70%'
-            }}>
-              <p style={{ margin: 0 }}>{msg.text}</p>
+      {/* CHAT HEADER */}
+      <header className="chat-header">
+        <div className="chat-nav-inner">
+          <button onClick={() => navigate(-1)} className="chat-back-btn">
+            <ArrowLeft size={20} />
+          </button>
+          
+          <div className="chat-user-info">
+            <div className="chat-avatar">
+              <ShoppingBag size={18} color="white" />
+            </div>
+            <div>
+              <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>{chatInfo?.itemName || "Item Inquiry"}</h4>
+              <p style={{ margin: 0, fontSize: '12px', color: '#64748B' }}>Messaging about this listing</p>
             </div>
           </div>
-        ))}
-        <div ref={messagesEndRef} />
+        </div>
+      </header>
+
+      {/* MESSAGES AREA */}
+      <div className="messages-container">
+        {messages.length === 0 ? (
+          <div className="empty-chat">
+            <MessageCircle size={40} color="#CBD5E1" />
+            <p>Start your conversation about the item.</p>
+          </div>
+        ) : (
+          messages.map((msg) => (
+            <div 
+              key={msg.id} 
+              className={`message-bubble-wrapper ${msg.senderId === user.uid ? "sent" : "received"}`}
+            >
+              <div className="message-bubble">
+                {msg.text}
+              </div>
+            </div>
+          ))
+        )}
+        <div ref={scrollRef} />
       </div>
 
-      <form onSubmit={sendMessage} style={{ display: 'flex', padding: '20px', borderTop: darkMode ? '1px solid #333' : '1px solid #eee' }}>
-        <input 
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Type a message..."
-          style={{
-            flex: 1,
-            padding: '15px',
-            borderRadius: '30px',
-            border: darkMode ? '1px solid #444' : '1px solid #ddd',
-            outline: 'none',
-            background: darkMode ? '#2c2c2c' : 'white',
-            color: darkMode ? 'white' : 'black'
-          }}
-        />
-        <button type="submit" style={{
-          marginLeft: '10px',
-          padding: '15px 25px',
-          borderRadius: '30px',
-          background: '#1877f2',
-          color: 'white',
-          border: 'none',
-          cursor: 'pointer'
-        }}>
-          Send
-        </button>
-      </form>
+      {/* INPUT AREA */}
+      <footer className="chat-input-area">
+        <form onSubmit={handleSendMessage} className="chat-form-inner">
+          <input 
+            type="text" 
+            placeholder="Type a message..." 
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+          />
+          <button type="submit" className="chat-send-btn">
+            <Send size={18} />
+          </button>
+        </form>
+      </footer>
     </div>
   );
 }

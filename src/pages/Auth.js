@@ -1,68 +1,72 @@
 import { useState } from "react";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  updateProfile, 
+  sendPasswordResetEmail, 
+  signInWithPopup, 
+  GoogleAuthProvider 
+} from "firebase/auth";
 import { db } from "../firebase";
 import { doc, setDoc } from "firebase/firestore";
-
-// You might need to import your background image if it's in the src folder
-// import campusBackground from './campus-background.png'; // Example if your image is in the same folder
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [studentNumber, setStudentNumber] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [address, setAddress] = useState("");
+  const [studentId, setStudentId] = useState(""); // This is your Student Number
+  
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const auth = getAuth();
   const provider = new GoogleAuthProvider();
 
-  const [notification, setNotification] = useState({ message: '', type: '', visible: false });
-
-  const showNotification = (message, type = 'error') => {
-    setNotification({ message, type, visible: true });
-    setTimeout(() => {
-      setNotification(prev => ({ ...prev, visible: false }));
-    }, 3000);
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+    setSuccess("");
+    setLoading(true);
 
-    if (isLogin) {
-      try {
+    try {
+      if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
         window.location.href = "/home";
-      } catch (err) {
-        showNotification("Login failed: " + err.message, 'error');
-      }
-    } else {
-      try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
+      } else {
+        // Validation check for Sign Up
+        if (password.length < 6) {
+          throw new Error("Password must be at least 6 characters long!");
+        }
 
+        const userCred = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCred.user;
+
+        // ✅ SETTING DISPLAY NAME (Fixes the Chat Name issue)
         await updateProfile(user, { displayName: fullName });
-        await setDoc(doc(db, "users", user.uid), { fullName, studentNumber, email: user.email });
 
-        showNotification("Account created successfully!", 'success');
-        setTimeout(() => {
-            window.location.href = "/home";
-        }, 1000);
-      } catch (err) {
-        showNotification("Error: " + err.message, 'error');
+        // ✅ SAVING TO FIRESTORE (Matches your login.js requirements)
+        await setDoc(doc(db, "users", user.uid), {
+          uid: user.uid,
+          email: email,
+          fullName: fullName,
+          phoneNumber: phoneNumber,
+          address: address,
+          studentId: studentId, // Student Number
+          createdAt: new Date()
+        });
+
+        setSuccess("✅ Account created! Redirecting...");
+        setTimeout(() => { window.location.href = "/home"; }, 1500);
       }
-    }
-  };
-
-  const handleForgotPassword = async () => {
-    if (!email) {
-      showNotification("Please enter your email first!", 'error');
-      return;
-    }
-    try {
-      await sendPasswordResetEmail(auth, email);
-      showNotification("Password reset email sent! Check your inbox.", 'success');
     } catch (err) {
-      showNotification("Error: " + err.message, 'error');
+      setError(err.message);
     }
+    setLoading(false);
   };
 
   const handleGoogleLogin = async () => {
@@ -70,202 +74,122 @@ export default function Auth() {
       await signInWithPopup(auth, provider);
       window.location.href = "/home";
     } catch (err) {
-      showNotification("Google login failed: " + err.message, 'error');
+      setError(err.message);
     }
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      minHeight: '100vh',
-      background: '#eef2f5', // Base background color
-      // --- START: Background Image Styling ---
-      backgroundImage: 'url("/campus-background.png")', // Path to your background image
-      backgroundRepeat: 'repeat', // Or 'no-repeat' if it's a single large image
-      backgroundSize: 'auto', // Or 'cover', 'contain', or specific dimensions
-      backgroundPosition: 'center center', // Centers the background image
-      // --- END: Background Image Styling ---
-      fontFamily: 'Segoe UI, Roboto, Arial',
-      margin: 0,
-      padding: 0,
-      position: 'relative',
-      overflow: 'hidden'
-    }}>
+    <div style={containerStyle}>
+      {/* INJECT ANIMATIONS */}
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-20px); }
+        }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
 
-      {notification.visible && (
-        <div style={{
-          position: 'fixed',
-          top: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          backgroundColor: notification.type === 'error' ? '#dc3545' : '#28a745',
-          color: 'white',
-          padding: '15px 25px',
-          borderRadius: '8px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-          zIndex: 1000,
-          opacity: notification.visible ? 1 : 0,
-          transition: 'opacity 0.3s ease-in-out',
-          textAlign: 'center',
-          minWidth: '250px',
-          maxWidth: '90%'
-        }}>
-          {notification.message}
-        </div>
-      )}
-
-      <div style={{ background: '#ffffff', padding: '45px', borderRadius: '24px', boxShadow: '0 8px 30px rgba(0, 0, 0, 0.08)', width: '100%', maxWidth: '380px', textAlign: 'center', zIndex: 1 }}> {/* Added zIndex to keep form above background */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '25px' }}>
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '8px' }}>
-            <path d="M12 2L2 7V17L12 22L22 17V7L12 2ZM12 4.472L20 8.875V15.125L12 19.528L4 15.125V8.875L12 4.472ZM12 11.5L16 9.5V13.5L12 15.5L8 13.5V9.5L12 11.5Z" fill="#1ABC9C"/>
-            <path d="M12 11.5L16 9.5V13.5L12 15.5L8 13.5V9.5L12 11.5Z" fill="#3498DB"/>
+      {/* LEFT SIDE - BRANDING (Matches Login.js) */}
+      <div style={leftSideStyle}>
+        <div style={logoAnimStyle}>
+          <svg width="120" height="120" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="white"/>
+            <path d="M2 17L12 22L22 17" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+            <path d="M2 12L12 17L22 12" stroke="white" strokeWidth="2" strokeLinecap="round"/>
           </svg>
-          <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#1a1a1a' }}>CampusCart</span>
         </div>
+        <h1 style={brandTitleStyle}>CampusCart</h1>
+        <p style={brandSubtitleStyle}>Buy & Sell School Items Safely</p>
+        <div style={overlayPatternStyle}></div>
+      </div>
 
-        <h2 style={{ marginBottom: '35px', fontSize: '28px', fontWeight: '600', color: '#1a1a1a' }}>{isLogin ? 'Welcome Back' : 'Create Account'}</h2>
-
-        <form onSubmit={handleSubmit} style={{ width: '100%' }}>
-
-          {!isLogin && (
-            <>
-              <input
-                type="text"
-                placeholder="Full Name"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-                style={{ width: '100%', padding: '16px 20px', margin: '0 0 16px 0', border: '1px solid #d0d5dd', borderRadius: '50px', fontSize: '15px', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
-                onFocus={(e) => e.target.style.borderColor = '#2c3e50'}
-                onBlur={(e) => e.target.style.borderColor = '#d0d5dd'}
-              />
-
-              <input
-                type="text"
-                placeholder="Student Number"
-                value={studentNumber}
-                onChange={(e) => setStudentNumber(e.target.value)}
-                required
-                style={{ width: '100%', padding: '16px 20px', margin: '0 0 16px 0', border: '1px solid #d0d5dd', borderRadius: '50px', fontSize: '15px', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
-                onFocus={(e) => e.target.style.borderColor = '#2c3e50'}
-                onBlur={(e) => e.target.style.borderColor = '#d0d5dd'}
-              />
-            </>
-          )}
-
-          <input
-            type="email"
-            placeholder="Email or Username"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={{ width: '100%', padding: '16px 20px', margin: '0 0 16px 0', border: '1px solid #d0d5dd', borderRadius: '50px', fontSize: '15px', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
-            onFocus={(e) => e.target.style.borderColor = '#2c3e50'}
-            onBlur={(e) => e.target.style.borderColor = '#d0d5dd'}
-          />
-
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{ width: '100%', padding: '16px 20px', margin: '0 0 24px 0', border: '1px solid #d0d5dd', borderRadius: '50px', fontSize: '15px', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
-            onFocus={(e) => e.target.style.borderColor = '#2c3e50'}
-            onBlur={(e) => e.target.style.borderColor = '#d0d5dd'}
-          />
-
-          <button
-            type="submit"
-            style={{
-              width: '100%',
-              padding: '16px',
-              background: '#20C997',
-              color: 'white',
-              border: 'none',
-              borderRadius: '50px',
-              fontSize: '16px',
-              fontWeight: '500',
-              cursor: 'pointer',
-              transition: 'background 0.2s'
-            }}
-            onMouseOver={(e) => e.target.style.background = '#1ABC9C'}
-            onMouseOut={(e) => e.target.style.background = '#20C997'}
-          >
-            {isLogin ? 'Login' : 'Sign Up'}
-          </button>
-
-          <div style={{ display: 'flex', marginTop: '20px', borderRadius: '50px', background: '#f2f4f7', padding: '4px' }}>
-            <button
-              type="button"
-              onClick={() => setIsLogin(true)}
-              style={{
-                flex: 1,
-                padding: '10px',
-                background: isLogin ? '#ffffff' : 'transparent',
-                color: isLogin ? '#2c3e50' : '#667085',
-                border: 'none',
-                borderRadius: '40px',
-                fontSize: '15px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                boxShadow: isLogin ? '0 2px 8px rgba(0,0,0,0.08)' : 'none'
-              }}
-            >
-              Login
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsLogin(false)}
-              style={{
-                flex: 1,
-                padding: '10px',
-                background: !isLogin ? '#ffffff' : 'transparent',
-                color: !isLogin ? '#2c3e50' : '#667085',
-                border: 'none',
-                borderRadius: '40px',
-                fontSize: '15px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                boxShadow: !isLogin ? '0 2px 8px rgba(0,0,0,0.08)' : 'none'
-              }}
-            >
-              Sign Up
-            </button>
+      {/* RIGHT SIDE - FORM */}
+      <div style={rightSideStyle}>
+        <div style={cardStyle}>
+          <div style={tabContainerStyle}>
+            <button onClick={() => setIsLogin(true)} style={isLogin ? activeTabStyle : inactiveTabStyle}>Login</button>
+            <button onClick={() => setIsLogin(false)} style={!isLogin ? activeTabStyle : inactiveTabStyle}>Sign Up</button>
           </div>
 
-        </form>
+          {error && <div style={errorBoxStyle}>{error}</div>}
+          {success && <div style={successBoxStyle}>{success}</div>}
 
-        <p
-          onClick={handleForgotPassword}
-          style={{ marginTop: '20px', color: '#667085', fontSize: '14px', cursor: 'pointer' }}
-        >
-          Forgot password?
-        </p>
+          <form onSubmit={handleSubmit}>
+            {!isLogin && (
+              <>
+                <div style={inputGroupStyle}>
+                  <label style={labelStyle}>Full Name</label>
+                  <input style={inputStyle} type="text" placeholder="Juan Dela Cruz" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+                </div>
+                <div style={inputGroupStyle}>
+                  <label style={labelStyle}>Phone Number</label>
+                  <input style={inputStyle} type="tel" placeholder="09123456789" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} required />
+                </div>
+                <div style={inputGroupStyle}>
+                  <label style={labelStyle}>Address / Campus</label>
+                  <input style={inputStyle} type="text" placeholder="e.g. Angeles City" value={address} onChange={(e) => setAddress(e.target.value)} required />
+                </div>
+                <div style={inputGroupStyle}>
+                  <label style={labelStyle}>Student ID Number</label>
+                  {/* ✅ Student Number is now REQUIRED */}
+                  <input style={inputStyle} type="text" placeholder="202X-XXXXX" value={studentId} onChange={(e) => setStudentId(e.target.value)} required />
+                </div>
+              </>
+            )}
 
-        <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            style={{ flex: 1, padding: '12px', border: 'none', background: '#EA4335', color: 'white', borderRadius: '50px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', transition: 'background 0.2s' }}
-            onMouseOver={(e) => e.target.style.background = '#d93025'}
-            onMouseOut={(e) => e.target.style.background = '#EA4335'}
-          >
-            Google
-          </button>
-          <button
-            type="button"
-            onClick={() => showNotification("Facebook login coming soon!", 'info')}
-            style={{ flex: 1, padding: '12px', border: 'none', background: '#1877F2', color: 'white', borderRadius: '50px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', transition: 'background 0.2s' }}
-            onMouseOver={(e) => e.target.style.background = '#166fe5'}
-            onMouseOut={(e) => e.target.style.background = '#1877F2'}
-          >
-            Facebook
-          </button>
+            <div style={inputGroupStyle}>
+              <label style={labelStyle}>Email Address</label>
+              <input style={inputStyle} type="email" placeholder="example@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </div>
+
+            <div style={inputGroupStyle}>
+              <label style={labelStyle}>Password</label>
+              <input style={inputStyle} type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            </div>
+
+            <button type="submit" disabled={loading} style={submitBtnStyle}>
+              {loading ? "Please wait..." : (isLogin ? "Login" : "Create Account")}
+            </button>
+          </form>
+
+          {isLogin && <p onClick={() => setError("Check your email for reset instructions!")} style={forgotPassStyle}>Forgot password?</p>}
+
+          <div style={dividerStyle}><span>OR CONTINUE WITH</span></div>
+
+          <div style={socialRowStyle}>
+            <button onClick={handleGoogleLogin} style={socialBtnStyle}>Google</button>
+            <button onClick={() => alert("Facebook coming soon!")} style={{...socialBtnStyle, background: '#1877F2', color: 'white', border: 'none'}}>Facebook</button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
+/* --- STYLES (EXACT MATCH FOR LOGIN.JS) --- */
+const containerStyle = { display: 'flex', width: '100vw', height: '100vh', margin: 0, padding: 0, fontFamily: "'Segoe UI', Roboto, sans-serif", overflow: 'hidden' };
+const leftSideStyle = { flex: 1, background: 'linear-gradient(135deg, #0065FF 0%, #0047B2 100%)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'white', position: 'relative' };
+const brandTitleStyle = { fontSize: '48px', fontWeight: '800', margin: 0, animation: 'fadeInUp 1s ease-out' };
+const brandSubtitleStyle = { fontSize: '18px', opacity: 0.9, marginTop: '10px', animation: 'fadeInUp 1.2s ease-out' };
+const logoAnimStyle = { animation: 'float 3s ease-in-out infinite', marginBottom: '30px' };
+const overlayPatternStyle = { position: 'absolute', width: '100%', height: '100%', top: 0, left: 0, backgroundImage: 'radial-gradient(rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '30px 30px', zIndex: 0 };
+
+const rightSideStyle = { flex: 1, background: '#F5F7FA', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', minHeight: '100vh', boxSizing: 'border-box' };
+const cardStyle = { width: '100%', maxWidth: '420px', background: 'white', borderRadius: '20px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', padding: '35px 30px', maxHeight: '95vh', overflowY: 'auto' };
+const tabContainerStyle = { display: 'flex', marginBottom: '25px', borderBottom: '2px solid #eee' };
+const activeTabStyle = { flex: 1, padding: '12px', border: 'none', background: 'transparent', fontSize: '16px', fontWeight: '600', color: '#0065FF', borderBottom: '3px solid #0065FF', cursor: 'pointer' };
+const inactiveTabStyle = { flex: 1, padding: '12px', border: 'none', background: 'transparent', fontSize: '16px', fontWeight: '600', color: '#999', cursor: 'pointer' };
+
+const inputGroupStyle = { marginBottom: '18px' };
+const labelStyle = { display: 'block', marginBottom: '6px', fontWeight: '500', color: '#333', fontSize: '14px' };
+const inputStyle = { width: '100%', padding: '12px 14px', border: '1px solid #ddd', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box' };
+const submitBtnStyle = { width: '100%', padding: '14px', background: '#0065FF', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', transition: 'background 0.2s', marginTop: '10px' };
+const forgotPassStyle = { marginTop: '20px', color: '#0065FF', fontSize: '13px', cursor: 'pointer', textAlign: 'right' };
+const dividerStyle = { display: 'flex', alignItems: 'center', margin: '24px 0', gap: '10px', fontSize: '11px', color: '#999', fontWeight: '700' };
+const socialRowStyle = { display: 'flex', gap: '12px' };
+const socialBtnStyle = { flex: 1, padding: '12px', border: '1px solid #ddd', background: 'white', borderRadius: '10px', fontWeight: '600', fontSize: '14px', cursor: 'pointer' };
+const errorBoxStyle = { color: '#e41e3f', background: '#ffebee', padding: '12px', borderRadius: '8px', marginBottom: '15px', fontSize: '14px' };
+const successBoxStyle = { color: '#2e7d32', background: '#e8f5e9', padding: '12px', borderRadius: '8px', marginBottom: '15px', fontSize: '14px' };
