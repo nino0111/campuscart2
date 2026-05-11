@@ -22,7 +22,7 @@ export default function UserProfile() {
           setUserData(userSnap.data());
         }
 
-        // 2. Get User's Listings (CHANGED sellerId to userId to match your database)
+        // 2. Get User's Listings (Matching your database field 'userId')
         const itemsQ = query(
           collection(db, "listings"), 
           where("userId", "==", userId)
@@ -31,7 +31,7 @@ export default function UserProfile() {
         setUserItems(itemsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
       } catch (error) {
-        console.error("Error stalking user:", error);
+        console.error("Error fetching user profile:", error);
       } finally {
         setLoading(false);
       }
@@ -51,9 +51,19 @@ export default function UserProfile() {
       </button>
 
       <div style={profileCardStyle}>
+        {/* PROFILE PICTURE LOGIC */}
         <div style={avatarLargeStyle}>
-          {userData.fullName?.charAt(0) || "U"}
+          {userData?.photoURL ? (
+            <img 
+              src={userData.photoURL} 
+              alt="Profile" 
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+            />
+          ) : (
+            userData.fullName?.charAt(0) || "U"
+          )}
         </div>
+
         <h1 style={{ margin: '15px 0 5px 0', fontSize: '28px', color: '#1E293B', fontWeight: '800' }}>
           {userData.fullName}
         </h1>
@@ -80,7 +90,6 @@ export default function UserProfile() {
               onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
               onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
             >
-              {/* ✅ UPDATED IMAGE LOGIC: Handles single imageUrl or images array */}
               <img 
                 src={Array.isArray(item.images) ? item.images[0] : (item.imageUrl || "https://placehold.co/400x300?text=No+Image")} 
                 alt={item.title} 
@@ -118,7 +127,8 @@ const profileCardStyle = {
 const avatarLargeStyle = { 
   width: '100px', height: '100px', background: '#2D3494', color: 'white', 
   borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', 
-  fontSize: '40px', fontWeight: '800', margin: '0 auto', boxShadow: '0 4px 12px rgba(45, 52, 148, 0.2)' 
+  fontSize: '40px', fontWeight: '800', margin: '0 auto', boxShadow: '0 4px 12px rgba(45, 52, 148, 0.2)',
+  overflow: 'hidden' // ✅ Ensures the image stays circular
 };
 
 const infoGridStyle = { 

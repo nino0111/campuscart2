@@ -4,7 +4,7 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   updateProfile, 
-  sendPasswordResetEmail, 
+  // ✅ REMOVED: sendPasswordResetEmail (unused)
   signInWithPopup, 
   GoogleAuthProvider 
 } from "firebase/auth";

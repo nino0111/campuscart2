@@ -11,13 +11,12 @@ import {
   doc, 
   getDoc 
 } from "firebase/firestore";
-// ✅ Fixed: Added MessageCircle to the imports
+// ✅ FIX: Removed unused UserIcon
 import { 
   ArrowLeft, 
   Send, 
   ShoppingBag, 
-  MessageCircle, 
-  User as UserIcon 
+  MessageCircle
 } from "lucide-react";
 import '../styles/Home.css';
 

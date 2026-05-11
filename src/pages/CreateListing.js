@@ -4,13 +4,9 @@ import { addDoc, collection, Timestamp } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { Link, useNavigate } from "react-router-dom";
 import { 
-  ArrowLeft, 
   Image as ImageIcon, 
   X, 
-  ShoppingBag, 
-  ChevronRight, 
-  MapPin,
-  Info
+  ShoppingBag
 } from "lucide-react";
 import '../styles/Home.css';
 
@@ -22,6 +18,10 @@ export default function CreateListing() {
   const [images, setImages] = useState([]);
   const [previews, setPreviews] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // ✅ NEW: For Custom Alert
+  const [alertMsg, setAlertMsg] = useState("");
+  const [showAlert, setShowAlert] = useState(false);
 
   const auth = getAuth();
   const user = auth.currentUser;
@@ -57,6 +57,9 @@ export default function CreateListing() {
         uploadedUrls.push(data.secure_url);
       } catch (err) {
         console.error(err);
+        // ✅ Replaced alert with custom
+        setAlertMsg("Failed to upload image. Check your Cloudinary settings.");
+        setShowAlert(true);
       }
     }
     return uploadedUrls;
@@ -64,7 +67,12 @@ export default function CreateListing() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!user) return alert("Please log in first");
+    if (!user) {
+      // ✅ Replaced alert with custom
+      setAlertMsg("Please log in first");
+      setShowAlert(true);
+      return;
+    }
     setLoading(true);
     
     const urls = await uploadImages();
@@ -81,11 +89,15 @@ export default function CreateListing() {
         location: "Angeles City, Pampanga" // Default
       });
 
-      alert("Listing created successfully!");
-      navigate("/home");
+      // ✅ Replaced alert with custom
+      setAlertMsg("Listing created successfully!");
+      setShowAlert(true);
+      setTimeout(() => navigate("/home"), 1200); // auto-close + redirect
     } catch (err) {
       console.error(err);
-      alert("Error creating listing");
+      // ✅ Replaced alert with custom
+      setAlertMsg("Error creating listing");
+      setShowAlert(true);
     } finally {
       setLoading(false);
     }
@@ -234,6 +246,61 @@ export default function CreateListing() {
           </div>
         </main>
       </div>
+
+      {/* ✅ CUSTOM ALERT MODAL - MATCHES YOUR DESIGN */}
+      {showAlert && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: "white",
+            borderRadius: "16px",
+            padding: "24px",
+            width: "90%",
+            maxWidth: "400px",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
+            border: "1px solid #E2E8F0"
+          }}>
+            <h3 style={{
+              fontSize: "18px",
+              fontWeight: 700,
+              color: "#2D3494",
+              margin: "0 0 12px 0"
+            }}>CampusCart</h3>
+            <p style={{
+              fontSize: "15px",
+              color: "#1E293B",
+              margin: "0 0 20px 0",
+              lineHeight: 1.5
+            }}>{alertMsg}</p>
+            <button
+              onClick={() => setShowAlert(false)}
+              style={{
+                width: "100%",
+                padding: "10px",
+                background: "#2D3494",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                fontWeight: 600,
+                cursor: "pointer"
+              }}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

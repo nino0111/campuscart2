@@ -6,16 +6,12 @@ import { getAuth } from "firebase/auth";
 import { 
   ArrowLeft, 
   ShoppingBag, 
-  User as UserIcon, 
   MessageCircle, 
   Trash2, 
   Share2, 
   Bookmark, 
-  Handshake, 
-  Bell,
   ChevronLeft,
-  ChevronRight,
-  MapPin
+  ChevronRight
 } from "lucide-react";
 import '../styles/Home.css';
 
@@ -26,6 +22,10 @@ export default function ItemDetail() {
   const [currentImgIndex, setCurrentImgIndex] = useState(0);
   const auth = getAuth();
   const user = auth.currentUser;
+
+  // ✅ NEW: For Custom Alert
+  const [alertMsg, setAlertMsg] = useState("");
+  const [showAlert, setShowAlert] = useState(false);
 
   const COLORS = {
     primary: '#2D3494',
@@ -56,12 +56,16 @@ export default function ItemDetail() {
 
   const startChat = async () => {
     if (!user) {
-      alert("Please login first!");
+      // ✅ Replaced alert with custom modal
+      setAlertMsg("Please login first!");
+      setShowAlert(true);
       navigate("/");
       return;
     }
     if (item.userId === user.uid) {
-      alert("This is your own item!");
+      // ✅ Replaced alert with custom modal
+      setAlertMsg("This is your own item!");
+      setShowAlert(true);
       return;
     }
 
@@ -210,6 +214,61 @@ export default function ItemDetail() {
         </aside>
 
       </main>
+
+      {/* ✅ CUSTOM ALERT MODAL - BRANDED DESIGN */}
+      {showAlert && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: "white",
+            borderRadius: "16px",
+            padding: "24px",
+            width: "90%",
+            maxWidth: "400px",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
+            border: "1px solid #E2E8F0"
+          }}>
+            <h3 style={{
+              fontSize: "18px",
+              fontWeight: 700,
+              color: "#2D3494",
+              margin: "0 0 12px 0"
+            }}>CampusCart</h3>
+            <p style={{
+              fontSize: "15px",
+              color: "#1E293B",
+              margin: "0 0 20px 0",
+              lineHeight: 1.5
+            }}>{alertMsg}</p>
+            <button
+              onClick={() => setShowAlert(false)}
+              style={{
+                width: "100%",
+                padding: "10px",
+                background: "#2D3494",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                fontWeight: 600,
+                cursor: "pointer"
+              }}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

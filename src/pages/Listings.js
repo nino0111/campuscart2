@@ -9,7 +9,6 @@ import {
   Gavel, 
   Clock, 
   Package, 
-  ChevronRight,
   Plus
 } from "lucide-react";
 import '../styles/Home.css';
@@ -18,6 +17,10 @@ export default function Listings() {
   const [items, setItems] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
+
+  // ✅ NEW: Custom Alert State
+  const [alertMsg, setAlertMsg] = useState("");
+  const [showAlert, setShowAlert] = useState(false);
 
   const COLORS = {
     primary: '#2D3494',
@@ -69,16 +72,22 @@ export default function Listings() {
     const numericBid = parseFloat(bidAmount);
 
     if (numericBid <= currentMax) {
-      alert(`Min bid: ₱${currentMax + 1}`);
+      // ✅ Replaced alert
+      setAlertMsg(`Min bid: ₱${currentMax + 1}`);
+      setShowAlert(true);
       return;
     }
 
     try {
       await updateDoc(doc(db, "listings", item.id), { highestBid: numericBid });
       setItems(items.map(i => i.id === item.id ? { ...i, highestBid: numericBid } : i));
-      alert(`Success! Current highest: ₱${numericBid}`);
+      // ✅ Replaced alert
+      setAlertMsg(`Success! Current highest: ₱${numericBid}`);
+      setShowAlert(true);
     } catch (error) {
-      alert("Error placing bid.");
+      // ✅ Replaced alert
+      setAlertMsg("Error placing bid.");
+      setShowAlert(true);
     }
   };
 
@@ -204,6 +213,61 @@ export default function Listings() {
       >
         <MessageCircle color="white" size={28} />
       </button>
+
+      {/* ✅ CUSTOM ALERT MODAL */}
+      {showAlert && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: "white",
+            borderRadius: "16px",
+            padding: "24px",
+            width: "90%",
+            maxWidth: "400px",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
+            border: "1px solid #E2E8F0"
+          }}>
+            <h3 style={{
+              fontSize: "18px",
+              fontWeight: 700,
+              color: "#2D3494",
+              margin: "0 0 12px 0"
+            }}>CampusCart</h3>
+            <p style={{
+              fontSize: "15px",
+              color: "#1E293B",
+              margin: "0 0 20px 0",
+              lineHeight: 1.5
+            }}>{alertMsg}</p>
+            <button
+              onClick={() => setShowAlert(false)}
+              style={{
+                width: "100%",
+                padding: "10px",
+                background: "#2D3494",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                fontWeight: 600,
+                cursor: "pointer"
+              }}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
