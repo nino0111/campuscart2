@@ -1,148 +1,195 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db, auth } from "../firebase";
-import { doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
-import { MessageCircle, ArrowLeft, Mail, IdCard, Package, MapPin, ShoppingBag } from "lucide-react";
+import { 
+  doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp 
+} from "firebase/firestore";
+import { MessageSquare, Mail, MapPin, Package, Loader2, ArrowLeft, Hash } from "lucide-react";
 
 export default function UserProfile() {
   const { userId } = useParams();
   const navigate = useNavigate();
-  const [userData, setUserData] = useState(null);
-  const [userItems, setUserItems] = useState([]);
+  const [profileUser, setProfileUser] = useState(null);
+  const [userListings, setUserListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const currentUser = auth.currentUser;
 
   useEffect(() => {
     const fetchUserData = async () => {
+      if (!userId) return;
       try {
-        const userRef = doc(db, "users", userId);
-        const userSnap = await getDoc(userRef);
-        
+        const userSnap = await getDoc(doc(db, "users", userId));
         if (userSnap.exists()) {
-          setUserData(userSnap.data());
+          setProfileUser(userSnap.data());
         }
 
-        const itemsQ = query(
-          collection(db, "listings"), 
-          where("userId", "==", userId)
-        );
-        const itemsSnap = await getDocs(itemsQ);
-        setUserItems(itemsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-
-      } catch (error) {
-        console.error("Error fetching profile:", error);
+        const q = query(collection(db, "listings"), where("userId", "==", userId));
+        const listingsSnap = await getDocs(q);
+        setUserListings(listingsSnap.docs.map(doc => ({ 
+          id: doc.id, 
+          ...doc.data() 
+        })));
+      } catch (err) {
+        console.error("Error fetching profile:", err);
       } finally {
         setLoading(false);
       }
     };
-
     fetchUserData();
   }, [userId]);
 
-  // ✅ Function to start a chat directly from the profile
-  const handleStartChat = async () => {
-    if (!currentUser) return navigate("/auth");
-    if (currentUser.uid === userId) return alert("You cannot message yourself!");
+  const handleMessageUser = async () => {
+    if (!currentUser) {
+      navigate("/auth");
+      return;
+    }
+    if (currentUser.uid === userId) return;
 
     try {
-      // Check if chat already exists
-      const chatQ = query(
+      const chatQuery = query(
         collection(db, "chats"),
         where("participants", "array-contains", currentUser.uid)
       );
-      const chatSnap = await getDocs(chatQ);
-      const existingChat = chatSnap.docs.find(doc => doc.data().participants.includes(userId));
+      
+      const querySnapshot = await getDocs(chatQuery);
+      let existingChatId = null;
 
-      if (existingChat) {
-        navigate(`/chat/${existingChat.id}`);
+      querySnapshot.forEach((doc) => {
+        if (doc.data().participants.includes(userId)) {
+          existingChatId = doc.id;
+        }
+      });
+
+      if (existingChatId) {
+        navigate(`/chat-room/${existingChatId}`);
       } else {
-        const newChat = await addDoc(collection(db, "chats"), {
+        const newChatRef = await addDoc(collection(db, "chats"), {
           participants: [currentUser.uid, userId],
-          buyerName: currentUser.displayName,
-          sellerName: userData.fullName,
+          lastMessage: "Hi!",
           updatedAt: serverTimestamp(),
-          lastMessage: "Started a chat from profile"
+          createdAt: serverTimestamp(),
+          sellerName: profileUser?.displayName || profileUser?.username || "Campus User",
+          buyerName: currentUser.displayName || "Student",
+          itemId: null 
         });
-        navigate(`/chat/${newChat.id}`);
+        navigate(`/chat-room/${newChatRef.id}`);
       }
     } catch (err) {
       console.error(err);
     }
   };
 
-  if (loading) return <div style={{ padding: '50px', textAlign: 'center' }}>Loading Profile...</div>;
-  if (!userData) return <div style={{ padding: '50px', textAlign: 'center' }}>User not found.</div>;
+  if (loading) return (
+    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Loader2 className="animate-spin" size={40} color="#2D3494" />
+    </div>
+  );
+
+  // ✅ NAME LOGIC
+  const displayedName = profileUser?.displayName || profileUser?.username || profileUser?.fullName || "Campus User";
+  
+  // ✅ STUDENT ID LOGIC: Checks for various common field names
+  const studentId = profileUser?.studentId || profileUser?.studentNumber || profileUser?.idNumber || "N/A";
+  
+  const userPhoto = profileUser?.photoURL || profileUser?.profilePic;
 
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px', fontFamily: 'Inter, sans-serif' }}>
-      <button onClick={() => navigate(-1)} style={backBtnStyle}>
-        <ArrowLeft size={18} /> Back
-      </button>
+    <div style={{ background: "#F8FAFC", minHeight: "100vh" }}>
+      <header style={headerStyle}>
+        <ArrowLeft onClick={() => navigate(-1)} style={{ cursor: "pointer" }} />
+        <span style={{ fontWeight: 800, color: "#2D3494" }}>User Profile</span>
+      </header>
 
-      <div style={profileCardStyle}>
-        <div style={avatarLargeStyle}>
-          {userData?.photoURL ? (
-            <img src={userData.photoURL} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            userData.fullName?.charAt(0) || "U"
-          )}
-        </div>
-
-        <h1 style={{ margin: '15px 0 5px 0', fontSize: '28px', color: '#1E293B', fontWeight: '800' }}>
-          {userData.fullName}
-        </h1>
+      <div style={{ maxWidth: "900px", margin: "0 auto", padding: "40px 20px" }}>
         
-        <div style={infoGridStyle}>
-          <div style={infoRowStyle}><Mail size={16} /> {userData.email}</div>
-          <div style={infoRowStyle}><IdCard size={16} /> ID: {userData.studentId || "N/A"}</div>
-          <div style={infoRowStyle}><MapPin size={16} /> {userData.address || "No location set"}</div>
-          <div style={infoRowStyle}><Package size={16} /> {userItems.length} Active Listings</div>
-        </div>
-
-        {/* ✅ NEW MESSAGE BUTTON */}
-        {currentUser?.uid !== userId && (
-          <button onClick={handleStartChat} style={messageBtnStyle}>
-            <MessageCircle size={18} /> Message {userData.fullName.split(' ')[0]}
-          </button>
-        )}
-      </div>
-
-      <h2 style={{ borderBottom: '2px solid #F1F5F9', paddingBottom: '15px', marginTop: '40px', fontWeight: '700' }}>
-        Items for Sale
-      </h2>
-
-      {userItems.length > 0 ? (
-        <div style={gridStyle}>
-          {userItems.map(item => (
-            <div key={item.id} onClick={() => navigate(`/detail/${item.id}`)} style={cardStyle}>
-              <img 
-                src={Array.isArray(item.images) ? item.images[0] : (item.imageUrl || "https://placehold.co/400x300")} 
-                alt={item.title} 
-                style={imgStyle} 
-              />
-              <div style={{ padding: '15px' }}>
-                <div style={{ fontWeight: '700', fontSize: '16px' }}>{item.title}</div>
-                <div style={{ color: '#2D3494', fontWeight: '800', marginTop: '5px' }}>₱{item.price}</div>
-              </div>
+        {/* PROFILE HEADER */}
+        <div style={profileCardStyle}>
+          <div style={avatarWrapper}>
+            <div style={blueRing}>
+              {userPhoto ? (
+                <img src={userPhoto} alt="Profile" style={avatarImgStyle} />
+              ) : (
+                <div style={avatarCircle}>
+                  {displayedName.charAt(0)}
+                </div>
+              )}
             </div>
-          ))}
+          </div>
+          
+          <h1 style={userNameStyle}>{displayedName}</h1>
+          
+          {/* ✅ ADDED STUDENT ID DISPLAY */}
+          <div style={studentBadge}>
+            <Hash size={14} /> ID: {studentId}
+          </div>
+          
+          <div style={statsRow}>
+            <div style={statItem}><Mail size={16} /> {profileUser?.email || "No email"}</div>
+            <div style={statItem}><MapPin size={16} /> {profileUser?.location || "PSAU"}</div>
+            <div style={statItem}><Package size={16} /> {userListings.length} Listings</div>
+          </div>
+
+          <button onClick={handleMessageUser} style={messageBtnStyle}>
+            <MessageSquare size={18} /> Message {displayedName.split(' ')[0]}
+          </button>
         </div>
-      ) : (
-        <div style={{ textAlign: 'center', marginTop: '50px', color: '#64748B' }}>
-          <ShoppingBag size={40} style={{ opacity: 0.2, marginBottom: '10px' }} />
-          <p>No active listings.</p>
+
+        {/* LISTINGS */}
+        <div style={{ marginTop: "40px" }}>
+          <h2 style={{ fontSize: "20px", fontWeight: "800", color: "#1E293B", marginBottom: "20px" }}>Active Listings</h2>
+          <div style={gridStyle}>
+            {userListings.map(item => (
+              <div key={item.id} onClick={() => navigate(`/detail/${item.id}`)} style={itemCard}>
+                <img src={item.images?.[0] || item.imageUrl} alt="" style={itemImg} />
+                <div style={{ padding: "12px" }}>
+                  <div style={{ color: "#059669", fontWeight: "800" }}>₱{Number(item.price).toLocaleString()}</div>
+                  <div style={{ fontWeight: "600", fontSize: "14px", marginTop: "4px" }}>{item.title}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
-const backBtnStyle = { display: 'flex', alignItems: 'center', gap: '8px', border: 'none', background: 'none', color: '#64748B', cursor: 'pointer', marginBottom: '20px', fontWeight: '700' };
-const profileCardStyle = { background: 'white', padding: '40px', borderRadius: '24px', textAlign: 'center', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)', border: '1px solid #F1F5F9' };
-const avatarLargeStyle = { width: '120px', height: '120px', background: '#2D3494', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '40px', fontWeight: '800', margin: '0 auto', overflow: 'hidden', border: '4px solid white', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' };
-const infoGridStyle = { display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '20px', marginTop: '20px' };
-const infoRowStyle = { display: 'flex', alignItems: 'center', gap: '8px', color: '#64748B', fontSize: '14px' };
-const messageBtnStyle = { marginTop: '25px', padding: '12px 25px', background: '#2D3494', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', margin: '25px auto 0 auto', transition: '0.2s' };
-const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '25px', marginTop: '20px' };
-const cardStyle = { background: 'white', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', cursor: 'pointer' };
-const imgStyle = { width: '100%', height: '180px', objectFit: 'cover' };
+/* --- STYLES --- */
+const headerStyle = { padding: "20px 5%", display: "flex", alignItems: "center", gap: "15px", background: "white", borderBottom: "1px solid #E2E8F0" };
+const profileCardStyle = { background: "white", borderRadius: "24px", padding: "40px", textAlign: "center", border: "1px solid #E2E8F0" };
+
+const avatarWrapper = { display: 'flex', justifyContent: 'center', marginBottom: '15px' };
+const blueRing = {
+  padding: "4px", 
+  borderRadius: "50%",
+  border: "1.5px solid #2D3494",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center"
+};
+
+const avatarImgStyle = { width: "100px", height: "100px", borderRadius: "50%", objectFit: "cover" };
+const avatarCircle = { width: "100px", height: "100px", borderRadius: "50%", background: "#2D3494", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "40px", fontWeight: "800" };
+
+const userNameStyle = { fontSize: "28px", fontWeight: "800", color: "#1E293B", marginBottom: "5px" };
+
+// ✅ NEW BADGE STYLE FOR STUDENT NUMBER
+const studentBadge = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "5px",
+  background: "#F1F5F9",
+  color: "#64748B",
+  padding: "5px 12px",
+  borderRadius: "20px",
+  fontSize: "13px",
+  fontWeight: "600",
+  marginBottom: "20px"
+};
+
+const statsRow = { display: "flex", justifyContent: "center", gap: "20px", flexWrap: "wrap", color: "#64748B", fontSize: "14px", marginBottom: "30px" };
+const statItem = { display: "flex", alignItems: "center", gap: "6px" };
+const messageBtnStyle = { background: "#2D3494", color: "white", border: "none", padding: "12px 30px", borderRadius: "12px", fontWeight: "700", display: "inline-flex", alignItems: "center", gap: "10px", cursor: "pointer" };
+const gridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "20px" };
+const itemCard = { background: "white", borderRadius: "16px", overflow: "hidden", border: "1px solid #E2E8F0", cursor: "pointer" };
+const itemImg = { width: "100%", height: "140px", objectFit: "cover" };

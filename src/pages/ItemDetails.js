@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate} from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import { 
   doc, getDoc, deleteDoc, collection, addDoc, getDocs, 
@@ -17,7 +17,7 @@ export default function ItemDetail() {
   const navigate = useNavigate();
   const [item, setItem] = useState(null);
   const [currentImgIndex, setCurrentImgIndex] = useState(0);
-  const [isSaved, setIsSaved] = useState(false); // ✅ Track Heart State
+  const [isSaved, setIsSaved] = useState(false);
   const auth = getAuth();
   const user = auth.currentUser;
 
@@ -42,7 +42,6 @@ export default function ItemDetail() {
         setItem(snap.data());
       }
 
-      // ✅ Check if item is already hearted
       if (user) {
         const savedRef = doc(db, "users", user.uid, "saved", id);
         const savedSnap = await getDoc(savedRef);
@@ -52,7 +51,6 @@ export default function ItemDetail() {
     fetchItem();
   }, [id, user]);
 
-  // ✅ Working Heart/Save Logic
   const toggleSave = async () => {
     if (!user) {
       setAlertMsg("Please login to save items!");
@@ -78,6 +76,7 @@ export default function ItemDetail() {
     }
   };
 
+  // ✅ FIXED CHAT LOGIC
   const startChat = async () => {
     if (!user) {
       setAlertMsg("Please login first!");
@@ -91,6 +90,7 @@ export default function ItemDetail() {
     }
 
     try {
+      // 1. Check for existing chat between these users for this item
       const chatQuery = query(
         collection(db, "chats"),
         where("itemId", "==", id),
@@ -98,21 +98,35 @@ export default function ItemDetail() {
       );
       const querySnapshot = await getDocs(chatQuery);
 
-      if (!querySnapshot.empty) {
-        navigate(`/chat/${querySnapshot.docs[0].id}`);
+      let existingChatId = null;
+      querySnapshot.forEach((doc) => {
+        if (doc.data().participants.includes(item.userId)) {
+          existingChatId = doc.id;
+        }
+      });
+
+      if (existingChatId) {
+        // ✅ Navigate to existing chat (Matches App.js route)
+        navigate(`/chat-room/${existingChatId}`);
       } else {
+        // 2. Create new chat if none exists
         const newChatRef = await addDoc(collection(db, "chats"), {
           itemId: id,
           itemName: item.title,
           participants: [user.uid, item.userId],
           lastMessage: "Hi, is this available?",
           createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
+          updatedAt: serverTimestamp(),
+          sellerName: item.sellerName || "Campus Seller",
+          buyerName: user.displayName || "Student Buyer"
         });
-        navigate(`/chat/${newChatRef.id}`);
+        // ✅ Navigate to new chat
+        navigate(`/chat-room/${newChatRef.id}`);
       }
     } catch (error) {
       console.error("Error starting chat:", error);
+      setAlertMsg("Failed to connect to seller. Please try again.");
+      setShowAlert(true);
     }
   };
 
@@ -172,7 +186,6 @@ export default function ItemDetail() {
               <MessageCircle size={20} /> Message Seller
             </button>
             
-            {/* ✅ THE HEART BUTTON */}
             <button 
               onClick={toggleSave}
               style={{ ...iconActionBtn, background: isSaved ? '#FEF2F2' : '#F1F5F9' }}
@@ -223,7 +236,6 @@ export default function ItemDetail() {
   );
 }
 
-/* --- STYLES --- */
 const navStyle = { padding: "15px 40px", background: "white", borderBottom: "1px solid #E2E8F0" };
 const backBtnStyle = { border: 'none', background: 'transparent', cursor: 'pointer', padding: 8 };
 const galleryPane = { flex: 1.5, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' };
