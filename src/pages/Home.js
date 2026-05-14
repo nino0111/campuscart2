@@ -5,8 +5,10 @@ import { useNavigate } from "react-router-dom";
 import { 
   Search, ShoppingBag, MapPin, Plus, 
   Menu, X, MessageSquare, Tag,
-  Loader2, Sparkles, Heart, Package, Settings, LogOut, BookOpen, Tv, Lamp, Shirt, PenTool, User
+  Loader2, Sparkles, Heart, Package, Settings, LogOut, BookOpen, Tv, Lamp, Shirt, PenTool, User,
+  Megaphone // ✅ Added Megaphone import
 } from "lucide-react";
+import AdSidebar from "../components/AdSidebar"; // ✅ Ensure this path is correct
 
 export default function Home() {
   const [items, setItems] = useState([]);
@@ -141,6 +143,12 @@ export default function Home() {
           <div style={sidebarItemStyle(activeCategory === "All")} onClick={() => { setActiveCategory("All"); setIsSidebarOpen(false); }}>
             <Tag size={18} /> All Listings
           </div>
+
+          {/* ✅ ADVERTISE BUTTON ADDED HERE */}
+          <div style={sidebarItemStyle(false)} onClick={() => { navigate('/advertise'); setIsSidebarOpen(false); }}>
+            <Megaphone size={18} /> Advertise
+          </div>
+
           <div style={sidebarItemStyle(false)} onClick={() => navigate('/chat')}><MessageSquare size={18} /> Messages</div>
           
           <p style={{ ...sidebarLabel, marginTop: "25px" }}>My Activity</p>
@@ -154,6 +162,12 @@ export default function Home() {
               {cat.name}
             </div>
           ))}
+
+          {/* ✅ SPONSORED BANNER ADDED HERE */}
+          <div style={{ marginTop: "30px" }}>
+            <p style={sidebarLabel}>Sponsored</p>
+            <AdSidebar />
+          </div>
         </div>
 
         <div style={{ padding: '20px', borderTop: '1px solid #F1F5F9' }}>
@@ -186,7 +200,6 @@ export default function Home() {
             <Plus size={18} /> <span className="hide-mobile">Sell Item</span>
           </button>
           
-          {/* ✅ ADDED PROFILE BUTTON */}
           <button 
             onClick={() => navigate('/profile')} 
             style={profileBtnStyle}
